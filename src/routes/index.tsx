@@ -1,13 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
-import { motion } from "framer-motion";
+import { useEffect, useRef, useState } from "react";
+import { motion, useInView } from "framer-motion";
 import {
   Menu, X, Instagram, Facebook, MessageCircle, MapPin, ArrowRight, ArrowUp,
   Trophy, Truck, Star, Package, Tag, Check, Phone, Mail, Clock,
 } from "lucide-react";
 
-import logoAsset from "@/assets/bg-logo.png.asset.json";
-import warehouseAsset from "@/assets/bg-warehouse.png.asset.json";
+import logo from "@/assets/bg-logo.png";
+import warehouse from "@/assets/bg-warehouse.png";
 import storefront from "@/assets/storefront.jpg";
 import schoolBg from "@/assets/school-supplies.jpg";
 import phoneBg from "@/assets/phone-contact.jpg";
@@ -36,6 +36,16 @@ const fadeUp = {
   show: { opacity: 1, y: 0, transition: { duration: 0.6, ease: [0.22, 1, 0.36, 1] as const } },
 };
 
+const stagger = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.12, delayChildren: 0.08 } },
+};
+
+const fadeUpItem = {
+  hidden: { opacity: 0, y: 22 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.55, ease: [0.22, 1, 0.36, 1] as const } },
+};
+
 function useScrolled(threshold = 30) {
   const [scrolled, setScrolled] = useState(false);
   useEffect(() => {
@@ -50,7 +60,7 @@ function useScrolled(threshold = 30) {
 function Logo({ light = false }: { light?: boolean }) {
   return (
     <a href="#inicio" className="flex items-center gap-3">
-      <img src={logoAsset.url} alt="BG Atacado" width={44} height={44} className="h-11 w-11 rounded-full object-cover ring-1 ring-black/5" />
+      <img src={logo} alt="BG Atacado" width={44} height={44} className="h-11 w-11 rounded-full object-cover ring-1 ring-black/5" />
       <div className="leading-tight">
         <div className={`font-display tracking-tight text-xl font-bold ${light ? "text-white" : "text-foreground"}`}>BG Atacado</div>
         <div className={`text-[10px] tracking-[0.22em] uppercase ${light ? "text-white/70" : "text-muted-foreground"}`}>Desde 1959</div>
@@ -117,64 +127,101 @@ function Hero() {
   return (
     <section id="inicio" className="relative min-h-screen pt-28 pb-16 overflow-hidden"
       style={{ background: "linear-gradient(135deg, #F8FAF9 0%, #F2F5F3 100%)" }}>
-      {/* decorative blobs */}
-      <div className="absolute -right-32 top-24 w-[480px] h-[480px] rounded-full opacity-30 blur-3xl"
+      {/* decorative blobs (flutuando) */}
+      <div className="absolute -right-32 top-24 w-[480px] h-[480px] rounded-full opacity-30 blur-3xl animate-float"
         style={{ background: "radial-gradient(circle, #4CAF7D 0%, transparent 70%)" }} />
-      <div className="absolute -left-20 bottom-0 w-80 h-80 rounded-full opacity-20 blur-3xl"
+      <div className="absolute -left-20 bottom-0 w-80 h-80 rounded-full opacity-20 blur-3xl animate-float-slow"
         style={{ background: "radial-gradient(circle, #2E8B57 0%, transparent 70%)" }} />
+      <div className="absolute right-1/4 top-1/2 w-64 h-64 rounded-full opacity-[0.12] blur-3xl animate-glow"
+        style={{ background: "radial-gradient(circle, #C9A84C 0%, transparent 70%)" }} />
+      {/* malha de pontos sutil */}
+      <div className="absolute inset-0 dot-grid opacity-[0.04] text-primary-dark" aria-hidden="true" />
 
       <div className="container-wide grid lg:grid-cols-2 gap-12 items-center relative">
-        <motion.div initial="hidden" animate="show" variants={fadeUp}>
-          <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-semibold text-white"
+        <motion.div initial="hidden" animate="show" variants={stagger}>
+          <motion.span variants={fadeUpItem} className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-semibold text-white shadow-sm"
             style={{ background: "linear-gradient(90deg, #2E8B57, #4CAF7D)" }}>
             <Trophy size={14} /> 65 anos de tradição no mercado
-          </span>
-          <h1 className="mt-6 font-display tracking-tight font-bold text-[2.6rem] sm:text-5xl lg:text-[3.5rem] leading-[1.05] text-foreground">
-            Uma história que se<br/>constrói <span className="not-italic font-extrabold" style={{ color: "var(--color-primary-dark)" }}>com você.</span>
-          </h1>
-          <p className="mt-6 text-lg text-muted-foreground max-w-xl">
+          </motion.span>
+          <motion.h1 variants={fadeUpItem} className="mt-6 font-display tracking-tight font-bold text-[2.6rem] sm:text-5xl lg:text-[3.5rem] leading-[1.05] text-foreground">
+            Uma história que se<br/>constrói <span className="not-italic font-extrabold relative inline-block" style={{ color: "var(--color-primary-dark)" }}>
+              com você.
+              <svg className="absolute -bottom-2 left-0 w-full" height="10" viewBox="0 0 200 10" preserveAspectRatio="none" aria-hidden="true">
+                <path d="M2 7 Q 50 1, 100 5 T 198 4" fill="none" stroke="var(--color-gold)" strokeWidth="3" strokeLinecap="round" />
+              </svg>
+            </span>
+          </motion.h1>
+          <motion.p variants={fadeUpItem} className="mt-6 text-lg text-muted-foreground max-w-xl">
             Atacadista em Passo Fundo/RS com materiais escolares, de escritório, embalagens, limpeza e muito mais — qualidade e preço justo.
-          </p>
-          <div className="mt-8 flex flex-wrap gap-3">
-            <a href="#produtos" className="btn-primary">Conheça nossos produtos <ArrowRight size={18} /></a>
+          </motion.p>
+          <motion.div variants={fadeUpItem} className="mt-8 flex flex-wrap gap-3">
+            <a href="#produtos" className="btn-primary btn-shine">Conheça nossos produtos <ArrowRight size={18} /></a>
             <a href={WHATS_LINK} target="_blank" rel="noreferrer" className="btn-ghost"><MessageCircle size={18} /> Fale no WhatsApp</a>
-          </div>
-          <div className="mt-10 grid grid-cols-1 sm:grid-cols-3 gap-5 max-w-xl">
+          </motion.div>
+          <motion.div variants={fadeUpItem} className="mt-10 grid grid-cols-1 sm:grid-cols-3 gap-5 max-w-xl">
             {[
               { icon: Trophy, label: "Tradição e confiança" },
               { icon: Truck, label: "Entrega grátis acima de R$100" },
               { icon: Star, label: "Marcas reconhecidas" },
             ].map(({ icon: Icon, label }) => (
-              <div key={label} className="flex items-center gap-2.5">
-                <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white shadow-sm" style={{ color: "var(--color-primary-dark)" }}>
+              <div key={label} className="flex items-center gap-2.5 group">
+                <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white shadow-sm transition-all duration-300 group-hover:scale-110 group-hover:shadow-md" style={{ color: "var(--color-primary-dark)" }}>
                   <Icon size={17} />
                 </span>
                 <span className="text-sm font-medium text-foreground/80 leading-tight">{label}</span>
               </div>
             ))}
-          </div>
+          </motion.div>
         </motion.div>
 
         <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.7, delay: 0.15 }} className="relative">
-          <div className="absolute -inset-4 rounded-[2.5rem] -z-10 opacity-60" style={{ background: "linear-gradient(135deg, #4CAF7D33, transparent)" }} />
-          <img
-            src={storefront}
-            alt="Fachada da loja BG Atacado em Passo Fundo"
-            width={1280} height={960}
-            className="w-full h-[460px] lg:h-[560px] object-cover rounded-[1.75rem] shadow-2xl"
-          />
-          <div className="absolute -bottom-6 -left-6 hidden sm:flex items-center gap-3 bg-white rounded-2xl px-5 py-4 shadow-xl">
-            <div className="flex h-12 w-12 items-center justify-center rounded-full" style={{ background: "var(--color-gold)" }}>
+          <div className="absolute -inset-4 rounded-[2.5rem] -z-10 opacity-60 animate-glow" style={{ background: "linear-gradient(135deg, #4CAF7D33, transparent)" }} />
+          <div className="relative overflow-hidden rounded-[1.75rem] shadow-2xl group animate-float-slow">
+            <img
+              src={storefront}
+              alt="Fachada da loja BG Atacado em Passo Fundo"
+              width={1280} height={960}
+              className="w-full h-[460px] lg:h-[560px] object-cover transition-transform duration-[1.2s] ease-out group-hover:scale-105"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-primary-dark/30 via-transparent to-transparent" />
+          </div>
+          <motion.div
+            initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.55 }}
+            className="absolute -bottom-6 -left-6 hidden sm:flex items-center gap-3 bg-white rounded-2xl px-5 py-4 shadow-xl">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full animate-glow" style={{ background: "var(--color-gold)" }}>
               <Trophy className="text-white" size={22} />
             </div>
             <div>
               <div className="font-display tracking-tight text-2xl font-bold leading-none" style={{ color: "var(--color-primary-dark)" }}>65+</div>
               <div className="text-xs text-muted-foreground">anos de tradição</div>
             </div>
-          </div>
+          </motion.div>
         </motion.div>
       </div>
     </section>
+  );
+}
+
+function Marquee() {
+  const items = [
+    "Material Escolar", "Escritório", "Limpeza", "Informática",
+    "Material Gráfico", "Embalagens", "Atacado & Varejo", "Entrega Própria",
+  ];
+  // duplicado p/ loop contínuo perfeito
+  const loop = [...items, ...items];
+  return (
+    <div className="relative overflow-hidden py-3.5 border-y border-black/5"
+      style={{ background: "linear-gradient(90deg, var(--color-gold), #d9bd6a, var(--color-gold))" }}>
+      <div className="animate-marquee">
+        {loop.map((t, i) => (
+          <span key={i} className="mx-6 inline-flex items-center gap-6 font-display font-bold text-sm sm:text-base uppercase tracking-wider"
+            style={{ color: "#1A5C3A" }}>
+            {t}
+            <span aria-hidden="true" className="text-[#1A5C3A]/50">◆</span>
+          </span>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -186,27 +233,33 @@ function Benefits() {
     { icon: MessageCircle, title: "Atendimento WhatsApp", text: "Tire suas dúvidas e faça pedidos" },
   ];
   return (
-    <section style={{ background: "var(--color-primary-dark)" }} className="py-14">
-      <div className="container-wide grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-2">
+    <section style={{ background: "var(--color-primary-dark)" }} className="relative py-14 overflow-hidden">
+      <div className="absolute inset-0 dot-grid opacity-[0.06] text-white" aria-hidden="true" />
+      <motion.div
+        initial="hidden" whileInView="show" viewport={{ once: true, margin: "-60px" }} variants={stagger}
+        className="container-wide grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-2 relative">
         {items.map(({ icon: Icon, title, text }, i) => (
-          <div key={title} className={`flex items-start gap-4 px-2 lg:px-6 ${i > 0 ? "lg:border-l lg:border-white/15" : ""}`}>
-            <span className="flex h-12 w-12 items-center justify-center rounded-full bg-white/10 text-white shrink-0">
+          <motion.div key={title} variants={fadeUpItem} className={`group flex items-start gap-4 px-2 lg:px-6 ${i > 0 ? "lg:border-l lg:border-white/15" : ""}`}>
+            <span className="flex h-12 w-12 items-center justify-center rounded-full bg-white/10 text-white shrink-0 transition-all duration-300 group-hover:bg-[var(--color-gold)] group-hover:scale-110">
               <Icon size={22} />
             </span>
             <div>
               <h3 className="text-white font-semibold text-base">{title}</h3>
               <p className="text-white/70 text-sm mt-1 leading-snug">{text}</p>
             </div>
-          </div>
+          </motion.div>
         ))}
-      </div>
+      </motion.div>
     </section>
   );
 }
 
 function Counter({ to, suffix = "" }: { to: number; suffix?: string }) {
+  const ref = useRef<HTMLSpanElement>(null);
+  const inView = useInView(ref, { once: true, margin: "-40px" });
   const [v, setV] = useState(0);
   useEffect(() => {
+    if (!inView) return;
     let raf = 0; const start = performance.now(); const dur = 1500;
     const tick = (t: number) => {
       const p = Math.min(1, (t - start) / dur);
@@ -215,8 +268,8 @@ function Counter({ to, suffix = "" }: { to: number; suffix?: string }) {
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [to]);
-  return <span>{v}{suffix}</span>;
+  }, [to, inView]);
+  return <span ref={ref}>{v}{suffix}</span>;
 }
 
 function About() {
@@ -225,7 +278,7 @@ function About() {
       <div className="container-wide grid lg:grid-cols-2 gap-14 items-center">
         <motion.div initial="hidden" whileInView="show" viewport={{ once: true, margin: "-80px" }} variants={fadeUp} className="relative">
           <img
-            src={warehouseAsset.url}
+            src={warehouse}
             alt="Interior da loja BG Atacado"
             loading="lazy"
             className="w-full h-[520px] object-cover rounded-3xl shadow-xl"
@@ -301,7 +354,12 @@ function Products() {
           <h2 className="mt-3 font-display tracking-tight font-bold text-3xl sm:text-4xl lg:text-[2.6rem] leading-tight">
             Tudo o que você precisa, em um só lugar
           </h2>
-          <p className="mt-4 text-[17px] text-muted-foreground">
+          <motion.span
+            initial={{ scaleX: 0 }} whileInView={{ scaleX: 1 }} viewport={{ once: true }}
+            transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1], delay: 0.2 }}
+            className="mt-5 block h-[3px] w-16 mx-auto origin-center rounded-full"
+            style={{ background: "linear-gradient(90deg, var(--color-gold), var(--color-primary-light))" }} />
+          <p className="mt-5 text-[17px] text-muted-foreground">
             Trabalhamos com marcas reconhecidas no mercado, oferecendo qualidade e preço justo.
           </p>
         </motion.div>
@@ -316,8 +374,8 @@ function Products() {
               transition={{ duration: 0.5, delay: i * 0.06 }}
               className="card-product group"
             >
-              <div className="mx-auto h-[150px] w-[150px] rounded-full overflow-hidden ring-4 ring-secondary group-hover:ring-primary-light/40 transition">
-                <img src={c.img} alt={c.name} loading="lazy" className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-500" />
+              <div className="mx-auto h-[150px] w-[150px] rounded-full overflow-hidden ring-4 ring-secondary transition-all duration-300 group-hover:ring-[var(--color-gold)] group-hover:shadow-[0_0_0_6px_rgba(201,168,76,0.15)]">
+                <img src={c.img} alt={c.name} loading="lazy" className="h-full w-full object-cover group-hover:scale-110 transition-transform duration-700" />
               </div>
               <h3 className="mt-6 font-display tracking-tight font-bold text-xl text-foreground">{c.name}</h3>
               <a href={WHATS_LINK} target="_blank" rel="noreferrer"
@@ -335,7 +393,7 @@ function Products() {
             <h3 className="font-display tracking-tight text-2xl sm:text-3xl font-bold">Não encontrou o que precisava?</h3>
             <p className="text-white/80 mt-1">Fale conosco pelo WhatsApp :)</p>
           </div>
-          <a href={WHATS_LINK} target="_blank" rel="noreferrer" className="btn-light">
+          <a href={WHATS_LINK} target="_blank" rel="noreferrer" className="btn-light btn-shine">
             <MessageCircle size={18} /> (54) 99124-2948
           </a>
         </div>
@@ -362,9 +420,10 @@ function SchoolBanner() {
 
 function Location() {
   return (
-    <section className="py-24" style={{ background: "var(--color-primary-dark)" }}>
-      <div className="container-wide grid lg:grid-cols-2 gap-12 items-center">
-        <div className="text-white">
+    <section className="relative py-24 overflow-hidden" style={{ background: "var(--color-primary-dark)" }}>
+      <div className="absolute inset-0 dot-grid opacity-[0.05] text-white" aria-hidden="true" />
+      <div className="container-wide grid lg:grid-cols-2 gap-12 items-center relative">
+        <motion.div initial="hidden" whileInView="show" viewport={{ once: true, margin: "-80px" }} variants={fadeUp} className="text-white">
           <span className="flex h-14 w-14 items-center justify-center rounded-full bg-white/10">
             <MapPin size={26} />
           </span>
@@ -375,19 +434,21 @@ function Location() {
           <a
             href="https://maps.google.com/?q=Rua+Teixeira+Soares,+172+-+Centro,+Passo+Fundo"
             target="_blank" rel="noreferrer"
-            className="btn-light mt-8 inline-flex"
+            className="btn-light btn-shine mt-8 inline-flex"
           >
             <MapPin size={18} /> Acessar mapa
           </a>
-        </div>
-        <div className="rounded-2xl overflow-hidden shadow-2xl ring-1 ring-white/10">
+        </motion.div>
+        <motion.div
+          initial={{ opacity: 0, scale: 0.96 }} whileInView={{ opacity: 1, scale: 1 }} viewport={{ once: true, margin: "-80px" }} transition={{ duration: 0.6 }}
+          className="rounded-2xl overflow-hidden shadow-2xl ring-1 ring-white/10">
           <iframe
             title="Mapa BG Atacado"
             src="https://maps.google.com/maps?q=Rua+Teixeira+Soares,+172+-+Centro,+Passo+Fundo&t=&z=15&ie=UTF8&iwloc=&output=embed"
             width="100%" height="380" loading="lazy"
             style={{ border: 0, display: "block" }}
           />
-        </div>
+        </motion.div>
       </div>
     </section>
   );
@@ -496,8 +557,10 @@ function FloatingButtons() {
 function Index() {
   return (
     <main>
+      <div className="grain-overlay" aria-hidden="true" />
       <Header />
       <Hero />
+      <Marquee />
       <Benefits />
       <About />
       <Products />

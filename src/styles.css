@@ -168,3 +168,87 @@
   100% { box-shadow: 0 0 0 0 rgba(37, 211, 102, 0); }
 }
 .whatsapp-pulse { animation: pulse-ring 2s infinite; }
+
+/* ── Motion & atmosphere additions ─────────────────────────────── */
+
+/* Blobs flutuantes — deriva orgânica e contínua */
+@keyframes float-y {
+  0%, 100% { transform: translateY(0) translateX(0); }
+  50% { transform: translateY(-26px) translateX(10px); }
+}
+@keyframes float-y2 {
+  0%, 100% { transform: translateY(0) translateX(0); }
+  50% { transform: translateY(20px) translateX(-12px); }
+}
+.animate-float { animation: float-y 11s ease-in-out infinite; }
+.animate-float-slow { animation: float-y2 15s ease-in-out infinite; }
+
+/* Marquee infinito (faixa de categorias) */
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+.animate-marquee {
+  display: inline-flex;
+  white-space: nowrap;
+  animation: marquee 32s linear infinite;
+}
+
+/* Brilho que cruza botões/cards no hover */
+@keyframes sheen {
+  0% { transform: translateX(-160%) skewX(-18deg); }
+  100% { transform: translateX(260%) skewX(-18deg); }
+}
+
+/* Glow pulsante suave para destaques */
+@keyframes soft-glow {
+  0%, 100% { opacity: 0.35; transform: scale(0.96); }
+  50% { opacity: 0.7; transform: scale(1.05); }
+}
+.animate-glow { animation: soft-glow 9s ease-in-out infinite; }
+
+/* Textura de grão sutil para dar profundidade premium */
+@utility grain-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+  opacity: 0.035;
+  mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* Malha de pontos para fundos de seção (em vez de cor chapada) */
+@utility dot-grid {
+  background-image: radial-gradient(currentColor 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* Shine animado em botões primários */
+.btn-shine { position: relative; overflow: hidden; }
+.btn-shine::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 40%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.35), transparent);
+  transform: translateX(-160%) skewX(-18deg);
+}
+.btn-shine:hover::after { animation: sheen 0.9s ease; }
+
+/* Sublinhado dourado animado para títulos de seção */
+.gold-rule {
+  display: inline-block;
+  height: 3px;
+  width: 0;
+  border-radius: 99px;
+  background: linear-gradient(90deg, var(--color-gold), var(--color-primary-light));
+  transition: width 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.gold-rule.in { width: 64px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-float, .animate-float-slow, .animate-marquee,
+  .animate-glow, .whatsapp-pulse { animation: none !important; }
+  .btn-shine:hover::after { animation: none; }
+}
