@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { motion, useInView } from "framer-motion";
 import {
@@ -337,12 +337,12 @@ function About() {
 }
 
 const categories = [
-  { name: "Material Gráfico", img: catGrafico },
-  { name: "Material de Limpeza", img: catLimpeza },
-  { name: "Linha Informática", img: catInformatica },
-  { name: "Linha Escritório", img: catEscritorio },
-  { name: "Material Escolar", img: catEscolar },
-  { name: "Embalagens Alimentícias", img: catEmbalagens },
+  { name: "Material Gráfico", img: catGrafico, slug: "grafico" },
+  { name: "Material de Limpeza", img: catLimpeza, to: "/limpeza" as const },
+  { name: "Linha Informática", img: catInformatica, slug: "informatica" },
+  { name: "Linha Escritório", img: catEscritorio, slug: "escritorio" },
+  { name: "Material Escolar", img: catEscolar, slug: "escolar" },
+  { name: "Embalagens Alimentícias", img: catEmbalagens, slug: "embalagens" },
 ];
 
 function Products() {
@@ -378,11 +378,19 @@ function Products() {
                 <img src={c.img} alt={c.name} loading="lazy" className="h-full w-full object-cover group-hover:scale-110 transition-transform duration-700" />
               </div>
               <h3 className="mt-6 font-display tracking-tight font-bold text-xl text-foreground">{c.name}</h3>
-              <a href={WHATS_LINK} target="_blank" rel="noreferrer"
-                 className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold transition"
-                 style={{ color: "var(--color-primary-dark)" }}>
-                Confira <ArrowRight size={15} className="group-hover:translate-x-1 transition-transform" />
-              </a>
+              {c.to ? (
+                <Link to={c.to}
+                  className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold transition"
+                  style={{ color: "var(--color-primary-dark)" }}>
+                  Ver produtos <ArrowRight size={15} className="group-hover:translate-x-1 transition-transform" />
+                </Link>
+              ) : (
+                <Link to="/categoria/$slug" params={{ slug: c.slug! }}
+                  className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold transition"
+                  style={{ color: "var(--color-primary-dark)" }}>
+                  Ver produtos <ArrowRight size={15} className="group-hover:translate-x-1 transition-transform" />
+                </Link>
+              )}
             </motion.div>
           ))}
         </div>
