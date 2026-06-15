@@ -12,4 +12,8 @@ export default defineConfig({
     // nitro/vite builds from this
     server: { entry: "server" },
   },
+  // Força o Nitro a buildar com o preset do Vercel (gera .vercel/output, que o
+  // Vercel serve via Build Output API). Sem isso, fora do ambiente Lovable o
+  // build sai só client-side e a Vercel retorna 404.
+  nitro: { preset: "vercel" },
 });
