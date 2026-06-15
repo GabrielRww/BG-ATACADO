@@ -1,8 +1,8 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  Loader2, LogOut, Plus, Pencil, Trash2, Upload, X, Package, ImageIcon, ExternalLink,
+  Loader2, LogOut, Plus, Pencil, Trash2, Upload, X, Package, ImageIcon, ExternalLink, Layers,
 } from "lucide-react";
 
 import logo from "@/assets/bg-logo.png";
@@ -86,6 +86,18 @@ function AdminPanel({ email }: { email: string }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const editando = form.id !== null;
 
+  // Modo de cadastro: individual ou em lote.
+  const [modo, setModo] = useState<"individual" | "lote">("individual");
+  const [bulkCat, setBulkCat] = useState<string>(CATEGORIAS[0]);
+  const [bulkSub, setBulkSub] = useState("");
+  const [bulkMarca, setBulkMarca] = useState("");
+  const [bulkTexto, setBulkTexto] = useState("");
+  // Quebra por linha OU vírgula (cola listas do catálogo direto).
+  const bulkItens = useMemo(
+    () => bulkTexto.split(/[\n,]+/).map((s) => s.trim()).filter(Boolean),
+    [bulkTexto],
+  );
+
   const set = <K extends keyof FormState>(k: K, v: FormState[K]) =>
     setForm((f) => ({ ...f, [k]: v }));
 
@@ -168,6 +180,34 @@ function AdminPanel({ email }: { email: string }) {
     qc.invalidateQueries({ queryKey: ["produtos"] });
   }
 
+  async function salvarLote(e: React.FormEvent) {
+    e.preventDefault();
+    if (bulkItens.length === 0) {
+      setMsg("Cole pelo menos um item (um por linha ou separados por vírgula).");
+      return;
+    }
+    setSalvando(true);
+    setMsg(null);
+    const rows = bulkItens.map((nome) => ({
+      nome,
+      categoria: bulkCat,
+      subcategoria: bulkSub.trim() || null,
+      marca: bulkMarca.trim() || null,
+      preco: 0,
+      ativo: true,
+    }));
+    const { error } = await supabase.from("produtos").insert(rows);
+    setSalvando(false);
+    if (error) {
+      setMsg("Erro ao cadastrar em lote: " + error.message);
+      return;
+    }
+    setMsg(`${rows.length} ${rows.length === 1 ? "produto cadastrado" : "produtos cadastrados"}!`);
+    setBulkTexto("");
+    qc.invalidateQueries({ queryKey: ["admin", "produtos"] });
+    qc.invalidateQueries({ queryKey: ["produtos"] });
+  }
+
   async function excluir(p: Produto) {
     if (!window.confirm(`Excluir "${p.nome}"? Esta ação não pode ser desfeita.`)) return;
     const { error } = await supabase.from("produtos").delete().eq("id", p.id);
@@ -206,12 +246,12 @@ function AdminPanel({ email }: { email: string }) {
       <div className="container-wide py-8 grid lg:grid-cols-[380px_1fr] gap-8 items-start">
         {/* Formulário */}
         <form
-          onSubmit={salvar}
+          onSubmit={modo === "lote" ? salvarLote : salvar}
           className="bg-white rounded-2xl ring-1 ring-black/5 shadow-sm p-5 lg:sticky lg:top-24 space-y-3.5"
         >
           <div className="flex items-center justify-between">
             <h2 className="font-display font-bold text-lg">
-              {editando ? "Editar produto" : "Novo produto"}
+              {editando ? "Editar produto" : modo === "lote" ? "Cadastro em lote" : "Novo produto"}
             </h2>
             {editando && (
               <button type="button" onClick={cancelar} className="text-muted-foreground hover:text-foreground">
@@ -220,6 +260,26 @@ function AdminPanel({ email }: { email: string }) {
             )}
           </div>
 
+          {/* Alternador de modo (some ao editar) */}
+          {!editando && (
+            <div className="flex gap-1 rounded-xl bg-secondary p-1">
+              {([["individual", "Individual"], ["lote", "Em lote"]] as const).map(([m, label]) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => { setModo(m); setMsg(null); }}
+                  className={`flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg py-1.5 text-sm font-semibold transition-colors ${
+                    modo === m ? "bg-white shadow-sm text-primary-dark" : "text-foreground/60"
+                  }`}
+                >
+                  {m === "lote" ? <Layers size={15} /> : <Plus size={15} />} {label}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {modo === "individual" && (
+          <>
           {/* Imagem */}
           <div>
             <label className="text-sm font-medium text-foreground/80">Imagem</label>
@@ -329,6 +389,43 @@ function AdminPanel({ email }: { email: string }) {
             />
             Ativo (visível no site)
           </label>
+          </>
+          )}
+
+          {/* Modo em lote */}
+          {modo === "lote" && (
+            <>
+              <Campo label="Categoria (para todos)">
+                <select value={bulkCat} onChange={(e) => setBulkCat(e.target.value)} className="inp">
+                  {CATEGORIAS.map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+              </Campo>
+              <div className="grid grid-cols-2 gap-3">
+                <Campo label="Subcategoria (para todos)">
+                  <input value={bulkSub} onChange={(e) => setBulkSub(e.target.value)} placeholder="Ex.: Escrita" className="inp" />
+                </Campo>
+                <Campo label="Marca (para todos)">
+                  <input value={bulkMarca} onChange={(e) => setBulkMarca(e.target.value)} placeholder="Opcional" className="inp" />
+                </Campo>
+              </div>
+              <Campo label="Itens — um por linha ou separados por vírgula">
+                <textarea
+                  value={bulkTexto}
+                  onChange={(e) => setBulkTexto(e.target.value)}
+                  rows={8}
+                  placeholder={"Borracha, Caneta esferográfica, Régua\nLápis preto\nTesoura"}
+                  className="inp resize-none"
+                />
+              </Campo>
+              <p className="text-xs text-muted-foreground">
+                {bulkItens.length > 0
+                  ? `${bulkItens.length} ${bulkItens.length === 1 ? "item será cadastrado" : "itens serão cadastrados"} em “${bulkCat}”. Imagens/preços você ajusta depois, item a item.`
+                  : "Cole a lista de itens. Sem imagem/preço (dá pra editar depois)."}
+              </p>
+            </>
+          )}
 
           {msg && (
             <p className="text-sm rounded-lg px-3 py-2 bg-secondary text-foreground/80">{msg}</p>
@@ -336,11 +433,15 @@ function AdminPanel({ email }: { email: string }) {
 
           <button
             type="submit"
-            disabled={salvando}
-            className="btn-primary w-full justify-center"
+            disabled={salvando || (modo === "lote" && bulkItens.length === 0)}
+            className="btn-primary w-full justify-center disabled:opacity-60"
           >
-            {salvando ? <Loader2 size={18} className="animate-spin" /> : <Plus size={18} />}
-            {editando ? "Salvar alterações" : "Cadastrar produto"}
+            {salvando ? <Loader2 size={18} className="animate-spin" /> : modo === "lote" ? <Layers size={18} /> : <Plus size={18} />}
+            {editando
+              ? "Salvar alterações"
+              : modo === "lote"
+                ? `Cadastrar ${bulkItens.length > 0 ? bulkItens.length + " " : ""}em lote`
+                : "Cadastrar produto"}
           </button>
         </form>
 
