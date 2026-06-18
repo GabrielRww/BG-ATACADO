@@ -247,7 +247,7 @@ function AdminPanel({ email }: { email: string }) {
         {/* Formulário */}
         <form
           onSubmit={modo === "lote" ? salvarLote : salvar}
-          className="bg-white rounded-2xl ring-1 ring-black/5 shadow-sm p-5 lg:sticky lg:top-24 space-y-3.5"
+          className="bg-white rounded-2xl ring-1 ring-black/5 shadow-sm p-5 lg:sticky lg:top-24 lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto space-y-3.5"
         >
           <div className="flex items-center justify-between">
             <h2 className="font-display font-bold text-lg">
