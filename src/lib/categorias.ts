@@ -15,6 +15,7 @@ export const CATEGORIAS_INFO: CategoriaInfo[] = [
   { slug: "escritorio", nome: "Linha Escritório", emoji: "🗂️" },
   { slug: "escolar", nome: "Material Escolar", emoji: "📚" },
   { slug: "embalagens", nome: "Embalagens Alimentícias", emoji: "🥡" },
+  { slug: "alimentos", nome: "Alimentos", emoji: "🍪" },
 ];
 
 // Nomes usados no select do admin.

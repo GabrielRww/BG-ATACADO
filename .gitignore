@@ -37,3 +37,6 @@ dist-ssr
 *.sln
 *.sw?
 package-lock.json
+
+# Import gerado
+scripts/import.ndjson

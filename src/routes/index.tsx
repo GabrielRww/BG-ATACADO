@@ -228,7 +228,7 @@ function Marquee() {
 function Benefits() {
   const items = [
     { icon: Truck, title: "Entrega gratuita", text: "Em Passo Fundo para compras acima de R$ 100,00" },
-    { icon: Package, title: "+6 categorias", text: "Ampla variedade de produtos para você" },
+    { icon: Package, title: "+7 categorias", text: "Ampla variedade de produtos para você" },
     { icon: Tag, title: "Marcas reconhecidas", text: "Qualidade com preço justo no atacado" },
     { icon: MessageCircle, title: "Atendimento WhatsApp", text: "Tire suas dúvidas e faça pedidos" },
   ];
@@ -323,7 +323,7 @@ function About() {
             </div>
             <div className="border-l-2 pl-4" style={{ borderColor: "var(--color-primary-light)" }}>
               <div className="font-display tracking-tight text-4xl font-bold" style={{ color: "var(--color-primary-dark)" }}>
-                +<Counter to={6} />
+                +<Counter to={7} />
               </div>
               <div className="text-xs text-muted-foreground uppercase tracking-wider mt-1">categorias</div>
             </div>
@@ -343,6 +343,8 @@ const categories = [
   { name: "Linha Escritório", img: catEscritorio, slug: "escritorio" },
   { name: "Material Escolar", img: catEscolar, slug: "escolar" },
   { name: "Embalagens Alimentícias", img: catEmbalagens, slug: "embalagens" },
+  // TODO: trocar a imagem por uma de alimentos (placeholder por enquanto)
+  { name: "Alimentos", img: catEmbalagens, slug: "alimentos" },
 ];
 
 function Products() {
