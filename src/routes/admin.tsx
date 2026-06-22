@@ -3,11 +3,15 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import {
   Loader2, LogOut, Plus, Pencil, Trash2, Upload, X, Package, ImageIcon, ExternalLink, Layers, Save,
+  ClipboardList, Users, Check, Clock, ChevronLeft, ChevronRight,
 } from "lucide-react";
 
+import { createClient } from "@supabase/supabase-js";
+
 import logo from "@/assets/bg-logo.png";
-import { supabase } from "@/lib/supabase";
-import { useSession, CATEGORIAS } from "@/lib/auth";
+import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from "@/lib/supabase";
+import { CATEGORIAS } from "@/lib/auth";
+import { useVendedor } from "@/lib/vendedor";
 import type { Produto } from "@/lib/types";
 
 export const Route = createFileRoute("/admin")({
@@ -66,25 +70,34 @@ const parsePreco = (s: string): number | null => {
   return Number.isFinite(n) ? n : null;
 };
 
-async function fetchTodos(): Promise<Produto[]> {
-  const { data, error } = await supabase
-    .from("produtos")
-    .select("*")
-    .order("created_at", { ascending: false })
-    .limit(500);
+const PAGE_ADMIN = 300; // produtos por página no admin
+
+async function fetchProdutosAdmin(
+  categoria: string,
+  busca: string,
+  pagina: number,
+): Promise<{ itens: Produto[]; total: number }> {
+  let q = supabase.from("produtos").select("*", { count: "exact" });
+  if (categoria) q = q.eq("categoria", categoria);
+  const t = busca.trim().replace(/[%,()*]/g, " ");
+  if (t) q = q.ilike("nome", `%${t}%`);
+  const from = pagina * PAGE_ADMIN;
+  const { data, error, count } = await q.order("nome").range(from, from + PAGE_ADMIN - 1);
   if (error) throw error;
-  return (data ?? []) as Produto[];
+  return { itens: (data ?? []) as Produto[], total: count ?? 0 };
 }
 
 function AdminPage() {
   const navigate = useNavigate();
-  const { session, loading } = useSession();
+  const { session, vendedor, loading } = useVendedor();
 
   useEffect(() => {
-    if (!loading && !session) navigate({ to: "/login" });
-  }, [loading, session, navigate]);
+    if (loading) return;
+    if (!session) navigate({ to: "/login" });
+    else if (vendedor) navigate({ to: "/vendedor" }); // vendedor não acessa o admin
+  }, [loading, session, vendedor, navigate]);
 
-  if (loading || !session) {
+  if (loading || !session || vendedor) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <Loader2 className="animate-spin text-primary-dark" size={28} />
@@ -98,12 +111,47 @@ function AdminPage() {
 function AdminPanel({ email }: { email: string }) {
   const navigate = useNavigate();
   const qc = useQueryClient();
-  const { data: produtos, isLoading } = useQuery({
-    queryKey: ["admin", "produtos"],
-    queryFn: fetchTodos,
+  const [filtroCat, setFiltroCat] = useState("");
+  const [busca, setBusca] = useState("");
+  const [buscaDeb, setBuscaDeb] = useState("");
+  const [pagina, setPagina] = useState(0);
+  useEffect(() => {
+    const id = setTimeout(() => setBuscaDeb(busca), 300);
+    return () => clearTimeout(id);
+  }, [busca]);
+  useEffect(() => { setPagina(0); }, [filtroCat, buscaDeb]);
+  const { data: pageData, isLoading } = useQuery({
+    queryKey: ["admin", "produtos", filtroCat, buscaDeb, pagina],
+    queryFn: () => fetchProdutosAdmin(filtroCat, buscaDeb, pagina),
   });
+  const produtos = pageData?.itens;
+  const total = pageData?.total ?? 0;
+  const totalPaginas = Math.max(1, Math.ceil(total / PAGE_ADMIN));
+  const paginacao = total > PAGE_ADMIN ? (
+    <div className="flex items-center justify-between gap-2 mb-3 text-sm">
+      <span className="text-muted-foreground">
+        {pagina * PAGE_ADMIN + 1}–{Math.min((pagina + 1) * PAGE_ADMIN, total)} de {total}
+      </span>
+      <div className="flex items-center gap-2">
+        <button type="button" disabled={pagina === 0} onClick={() => setPagina((p) => Math.max(0, p - 1))} className="btn-ghost disabled:opacity-40" aria-label="Anterior"><ChevronLeft size={16} /></button>
+        <span className="font-medium">Pág. {pagina + 1}/{totalPaginas}</span>
+        <button type="button" disabled={pagina >= totalPaginas - 1} onClick={() => setPagina((p) => p + 1)} className="btn-ghost disabled:opacity-40" aria-label="Próxima"><ChevronRight size={16} /></button>
+      </div>
+    </div>
+  ) : null;
 
   const [modo, setModo] = useState<"individual" | "lote">("individual");
+  const [aba, setAba] = useState<"catalogo" | "pedidos" | "vendedores">("catalogo");
+  const { data: pendentes } = useQuery({
+    queryKey: ["admin", "pedidos", "pendentes"],
+    queryFn: async () => {
+      const { count } = await supabase
+        .from("pedidos")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "pendente");
+      return count ?? 0;
+    },
+  });
   const [form, setForm] = useState<FormState>(FORM_VAZIO);
   const [salvando, setSalvando] = useState(false);
   const [enviandoImg, setEnviandoImg] = useState(false);
@@ -153,7 +201,8 @@ function AdminPanel({ email }: { email: string }) {
       ativo: p.ativo,
     });
     setMsg(null);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    // Não rola pro topo: o formulário é fixo (sticky) e atualiza no lugar,
+    // mantendo a posição do usuário na lista.
   }
 
   function cancelar() {
@@ -233,6 +282,33 @@ function AdminPanel({ email }: { email: string }) {
       </header>
 
       <div className="container-wide py-8">
+        {/* Abas principais */}
+        <div className="flex flex-wrap gap-1 rounded-xl bg-secondary p-1 max-w-xl mb-6">
+          {([
+            ["catalogo", "Catálogo", Package, 0],
+            ["pedidos", "Pedidos", ClipboardList, pendentes ?? 0],
+            ["vendedores", "Vendedores", Users, 0],
+          ] as const).map(([a, label, Icon, badge]) => (
+            <button
+              key={a}
+              type="button"
+              onClick={() => setAba(a)}
+              className={`flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg py-2 px-3 text-sm font-semibold transition-colors ${
+                aba === a ? "bg-white shadow-sm text-primary-dark" : "text-foreground/60"
+              }`}
+            >
+              <Icon size={15} /> {label}
+              {badge > 0 && (
+                <span className="ml-1 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-red-600 px-1 text-[11px] font-bold text-white">{badge}</span>
+              )}
+            </button>
+          ))}
+        </div>
+
+        {aba === "pedidos" && <PedidosView />}
+        {aba === "vendedores" && <VendedoresView />}
+
+        {aba === "catalogo" && (<>
         {/* Alternador de modo (some ao editar) */}
         {!editando && (
           <div className="flex gap-1 rounded-xl bg-secondary p-1 max-w-sm mb-6">
@@ -252,7 +328,7 @@ function AdminPanel({ email }: { email: string }) {
         )}
 
         {modo === "lote" && !editando ? (
-          <BulkEditor onSaved={invalidar} totalAtual={produtos?.length} />
+          <BulkEditor onSaved={invalidar} totalAtual={total} />
         ) : (
           <div className="grid lg:grid-cols-[380px_1fr] gap-8 items-start">
             {/* Formulário individual */}
@@ -374,11 +450,19 @@ function AdminPanel({ email }: { email: string }) {
 
             {/* Lista */}
             <section>
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="font-display font-bold text-xl">
-                  Produtos {produtos ? <span className="text-muted-foreground font-normal text-base">({produtos.length})</span> : null}
+              <div className="flex flex-wrap items-center gap-2 mb-4">
+                <h2 className="font-display font-bold text-xl shrink-0">
+                  Produtos <span className="text-muted-foreground font-normal text-base">({total})</span>
                 </h2>
+                <div className="flex flex-1 flex-wrap gap-2 sm:justify-end">
+                  <select value={filtroCat} onChange={(e) => setFiltroCat(e.target.value)} className="inp w-auto py-2">
+                    <option value="">Todas as categorias</option>
+                    {CATEGORIAS.map((c) => (<option key={c} value={c}>{c}</option>))}
+                  </select>
+                  <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar produto..." className="inp w-auto py-2" />
+                </div>
               </div>
+              {paginacao}
 
               {isLoading ? (
                 <div className="flex items-center justify-center py-20">
@@ -387,7 +471,7 @@ function AdminPanel({ email }: { email: string }) {
               ) : !produtos || produtos.length === 0 ? (
                 <div className="text-center py-20 text-muted-foreground">
                   <Package size={40} className="mx-auto mb-3 opacity-50" />
-                  Nenhum produto ainda. Cadastre o primeiro ao lado.
+                  {filtroCat || buscaDeb ? "Nenhum produto encontrado com esse filtro." : "Nenhum produto ainda. Cadastre o primeiro ao lado."}
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -395,7 +479,7 @@ function AdminPanel({ email }: { email: string }) {
                     <div key={p.id} className="flex items-center gap-3 bg-white rounded-xl ring-1 ring-black/5 p-2.5 hover:shadow-sm transition-shadow">
                       <div className="h-14 w-14 shrink-0 rounded-lg bg-secondary/50 overflow-hidden flex items-center justify-center">
                         {p.imagem_url ? (
-                          <img src={p.imagem_url} alt="" className="h-full w-full object-contain" />
+                          <img src={p.imagem_url} alt="" loading="lazy" className="h-full w-full object-contain" />
                         ) : (
                           <Package size={20} className="text-muted-foreground" />
                         )}
@@ -431,9 +515,11 @@ function AdminPanel({ email }: { email: string }) {
                   ))}
                 </div>
               )}
+              {produtos && produtos.length > 0 && paginacao}
             </section>
           </div>
         )}
+        </>)}
       </div>
     </main>
   );
@@ -661,6 +747,245 @@ function Campo({ label, children }: { label: string; children: React.ReactNode }
     <div>
       <label className="text-sm font-medium text-foreground/80">{label}</label>
       <div className="mt-1.5">{children}</div>
+    </div>
+  );
+}
+
+// ── Pedidos ──
+
+type PedidoItem = { id: string; nome: string; variante: string | null; preco_unit: number; quantidade: number; subtotal: number };
+type Pedido = {
+  id: string; numero: number; origem: string; status: string;
+  cliente_nome: string | null; cliente_telefone: string | null; cliente_doc: string | null;
+  cep: string | null; endereco: string | null; numero_end: string | null; bairro: string | null;
+  cidade: string | null; uf: string | null; complemento: string | null;
+  vendedor_nome: string | null; tabela_preco: string | null; forma_pagamento: string | null;
+  tipo_fiscal: string | null; entrega: string | null; observacao: string | null;
+  total: number; created_at: string; pedido_itens: PedidoItem[];
+};
+
+const STATUS: Record<string, { label: string; cls: string }> = {
+  pendente: { label: "Pendente", cls: "bg-amber-100 text-amber-800" },
+  visto: { label: "Visto", cls: "bg-blue-100 text-blue-800" },
+  concluido: { label: "Concluído", cls: "bg-green-100 text-green-800" },
+  cancelado: { label: "Cancelado", cls: "bg-red-100 text-red-700" },
+};
+const LBL_PAG: Record<string, string> = { cartao_entrega: "Cartão na entrega", cupom: "Cupom", pix: "PIX", boleto: "Boleto" };
+const LBL_FISCAL: Record<string, string> = { cupom: "Cupom fiscal", nota: "Nota fiscal" };
+const LBL_TAB: Record<string, string> = { cupom: "Cupom/consumidor", revenda: "Revenda", empresa: "Empresa (NF)" };
+
+function PedidosView() {
+  const qc = useQueryClient();
+  const { data, isLoading } = useQuery({
+    queryKey: ["admin", "pedidos"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("pedidos")
+        .select("*, pedido_itens(*)")
+        .order("created_at", { ascending: false })
+        .limit(200);
+      if (error) throw error;
+      return data as Pedido[];
+    },
+  });
+
+  async function mudarStatus(id: string, status: string) {
+    await supabase.from("pedidos").update({ status }).eq("id", id);
+    qc.invalidateQueries({ queryKey: ["admin", "pedidos"] });
+    qc.invalidateQueries({ queryKey: ["admin", "pedidos", "pendentes"] });
+  }
+  async function excluir(id: string) {
+    if (!window.confirm("Excluir este pedido?")) return;
+    await supabase.from("pedidos").delete().eq("id", id);
+    qc.invalidateQueries({ queryKey: ["admin", "pedidos"] });
+    qc.invalidateQueries({ queryKey: ["admin", "pedidos", "pendentes"] });
+  }
+
+  if (isLoading) return <div className="flex justify-center py-20"><Loader2 className="animate-spin text-primary-dark" size={26} /></div>;
+  if (!data || data.length === 0) return <div className="text-center py-20 text-muted-foreground"><ClipboardList size={40} className="mx-auto mb-3 opacity-50" />Nenhum pedido ainda.</div>;
+
+  return (
+    <div className="space-y-4">
+      {data.map((p) => {
+        const end = [p.endereco, p.numero_end && `nº ${p.numero_end}`, p.bairro, p.cidade && p.uf ? `${p.cidade}/${p.uf}` : p.cidade, p.cep && `CEP ${p.cep}`, p.complemento].filter(Boolean).join(", ");
+        const st = STATUS[p.status] ?? STATUS.pendente;
+        return (
+          <div key={p.id} className="bg-white rounded-2xl ring-1 ring-black/5 shadow-sm p-4">
+            <div className="flex flex-wrap items-center gap-2 justify-between">
+              <div className="flex items-center gap-2">
+                <span className="font-display font-bold">Pedido #{p.numero}</span>
+                <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${st.cls}`}>{st.label}</span>
+                <span className="rounded-full px-2 py-0.5 text-[11px] font-medium bg-secondary text-foreground/70">{p.origem === "vendedor" ? "Vendedor" : "Site"}</span>
+              </div>
+              <span className="text-xs text-muted-foreground">{new Date(p.created_at).toLocaleString("pt-BR")}</span>
+            </div>
+
+            <div className="mt-2 grid sm:grid-cols-2 gap-x-6 gap-y-1 text-sm">
+              {p.vendedor_nome && <div><b>Vendedor:</b> {p.vendedor_nome}</div>}
+              {p.cliente_nome && <div><b>Cliente:</b> {p.cliente_nome}</div>}
+              {p.cliente_telefone && <div><b>Telefone:</b> {p.cliente_telefone}</div>}
+              {p.cliente_doc && <div><b>CPF/CNPJ:</b> {p.cliente_doc}</div>}
+              {end && <div className="sm:col-span-2"><b>Endereço:</b> {end}</div>}
+              {p.tabela_preco && <div><b>Tabela:</b> {LBL_TAB[p.tabela_preco] ?? p.tabela_preco}</div>}
+              {p.tipo_fiscal && <div><b>Fiscal:</b> {LBL_FISCAL[p.tipo_fiscal] ?? p.tipo_fiscal}</div>}
+              {p.forma_pagamento && <div><b>Pagamento:</b> {LBL_PAG[p.forma_pagamento] ?? p.forma_pagamento}</div>}
+              {p.entrega && <div className="sm:col-span-2"><b>Entrega:</b> {p.entrega}</div>}
+              {p.observacao && <div className="sm:col-span-2"><b>Obs:</b> {p.observacao}</div>}
+            </div>
+
+            <div className="mt-3 rounded-xl bg-secondary/40 p-3 space-y-1">
+              {p.pedido_itens?.map((it) => (
+                <div key={it.id} className="flex justify-between text-sm">
+                  <span>{it.quantidade}x {it.nome}{it.variante ? ` (${it.variante})` : ""}</span>
+                  <span className="font-medium">{brl(it.subtotal)}</span>
+                </div>
+              ))}
+              <div className="flex justify-between border-t pt-1 mt-1 font-bold">
+                <span>Total</span><span style={{ color: "var(--color-primary-dark)" }}>{brl(p.total)}</span>
+              </div>
+            </div>
+
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <select value={p.status} onChange={(e) => mudarStatus(p.id, e.target.value)} className="inp w-auto py-1.5">
+                <option value="pendente">Pendente</option>
+                <option value="visto">Visto</option>
+                <option value="concluido">Concluído</option>
+                <option value="cancelado">Cancelado</option>
+              </select>
+              <button onClick={() => excluir(p.id)} className="p-2 rounded-lg text-foreground/50 hover:bg-red-50 hover:text-red-600" aria-label="Excluir"><Trash2 size={16} /></button>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── Vendedores ──
+
+type VendedorRow = { id: string; nome: string; telefone: string | null; cidade: string | null; uf: string | null; ativo: boolean; created_at: string };
+
+function CadastrarVendedorForm({ onCriado }: { onCriado: () => void }) {
+  const [aberto, setAberto] = useState(false);
+  const [nome, setNome] = useState("");
+  const [tel, setTel] = useState("");
+  const [cidade, setCidade] = useState("");
+  const [uf, setUf] = useState("");
+  const [email, setEmail] = useState("");
+  const [senha, setSenha] = useState("");
+  const [salvando, setSalvando] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  async function criar(e: React.FormEvent) {
+    e.preventDefault();
+    setMsg(null);
+    if (!nome.trim() || !email.trim() || senha.length < 6) {
+      setMsg("Preencha nome, e-mail e senha (mín. 6).");
+      return;
+    }
+    setSalvando(true);
+    // Cliente isolado: cria o vendedor sem trocar a sessão do admin.
+    const temp = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      auth: { persistSession: false, autoRefreshToken: false, storageKey: "bg-admin-signup" },
+    });
+    const { data, error } = await temp.auth.signUp({ email: email.trim(), password: senha });
+    if (error || !data.user) {
+      setSalvando(false);
+      setMsg("Erro: " + (error?.message ?? "falha ao criar"));
+      return;
+    }
+    const { error: e2 } = await temp.from("vendedores").insert({
+      user_id: data.user.id,
+      nome: nome.trim(),
+      telefone: tel.trim() || null,
+      cidade: cidade.trim() || null,
+      uf: uf.trim() || null,
+      ativo: true, // criado pelo admin já entra aprovado
+    });
+    await temp.auth.signOut();
+    setSalvando(false);
+    if (e2) {
+      setMsg("Conta criada, mas erro ao registrar vendedor: " + e2.message);
+      return;
+    }
+    setMsg("✅ Vendedor cadastrado e aprovado!");
+    setNome(""); setTel(""); setCidade(""); setUf(""); setEmail(""); setSenha("");
+    onCriado();
+  }
+
+  return (
+    <div className="bg-white rounded-2xl ring-1 ring-black/5 shadow-sm p-4">
+      <button onClick={() => setAberto((a) => !a)} className="flex w-full items-center justify-between font-display font-bold text-lg">
+        <span className="inline-flex items-center gap-2"><Plus size={18} /> Cadastrar vendedor</span>
+        <span className="text-muted-foreground text-sm">{aberto ? "fechar" : "abrir"}</span>
+      </button>
+      {aberto && (
+        <form onSubmit={criar} className="mt-4 grid sm:grid-cols-2 gap-3">
+          <input value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Nome *" className="inp sm:col-span-2" />
+          <input value={tel} onChange={(e) => setTel(e.target.value)} placeholder="Telefone" className="inp" />
+          <div className="grid grid-cols-[1fr_70px] gap-2">
+            <input value={cidade} onChange={(e) => setCidade(e.target.value)} placeholder="Cidade" className="inp" />
+            <input value={uf} onChange={(e) => setUf(e.target.value)} placeholder="UF" maxLength={2} className="inp" />
+          </div>
+          <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="E-mail *" className="inp" />
+          <input type="password" value={senha} onChange={(e) => setSenha(e.target.value)} placeholder="Senha (mín. 6) *" className="inp" />
+          {msg && <p className="sm:col-span-2 text-sm rounded-lg px-3 py-2 bg-secondary text-foreground/80">{msg}</p>}
+          <button type="submit" disabled={salvando} className="btn-primary justify-center sm:col-span-2 disabled:opacity-60">
+            {salvando ? <Loader2 size={18} className="animate-spin" /> : <Plus size={18} />} Cadastrar e aprovar
+          </button>
+        </form>
+      )}
+    </div>
+  );
+}
+
+function VendedoresView() {
+  const qc = useQueryClient();
+  const { data, isLoading } = useQuery({
+    queryKey: ["admin", "vendedores"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("vendedores").select("*").order("created_at", { ascending: false });
+      if (error) throw error;
+      return data as VendedorRow[];
+    },
+  });
+  async function setAtivo(id: string, ativo: boolean) {
+    await supabase.from("vendedores").update({ ativo }).eq("id", id);
+    qc.invalidateQueries({ queryKey: ["admin", "vendedores"] });
+  }
+  const refresh = () => qc.invalidateQueries({ queryKey: ["admin", "vendedores"] });
+
+  return (
+    <div className="space-y-4">
+      <CadastrarVendedorForm onCriado={refresh} />
+      {isLoading ? (
+        <div className="flex justify-center py-12"><Loader2 className="animate-spin text-primary-dark" size={26} /></div>
+      ) : !data || data.length === 0 ? (
+        <div className="text-center py-12 text-muted-foreground"><Users size={40} className="mx-auto mb-3 opacity-50" />Nenhum vendedor cadastrado ainda.</div>
+      ) : (
+      <div className="space-y-2">
+      {data.map((v) => (
+        <div key={v.id} className="flex items-center gap-3 bg-white rounded-xl ring-1 ring-black/5 p-3">
+          <div className="flex-1 min-w-0">
+            <div className="font-medium text-sm">{v.nome}</div>
+            <div className="text-xs text-muted-foreground">
+              {v.telefone ?? "sem telefone"}
+              {v.cidade ? ` · ${v.cidade}${v.uf ? `/${v.uf}` : ""}` : ""}
+              {" · "}{new Date(v.created_at).toLocaleDateString("pt-BR")}
+            </div>
+          </div>
+          {v.ativo ? (
+            <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold bg-green-100 text-green-800"><Check size={12} /> Ativo</span>
+          ) : (
+            <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold bg-amber-100 text-amber-800"><Clock size={12} /> Pendente</span>
+          )}
+          <button onClick={() => setAtivo(v.id, !v.ativo)} className={v.ativo ? "btn-ghost" : "btn-primary"}>
+            {v.ativo ? "Desativar" : "Aprovar"}
+          </button>
+        </div>
+      ))}
+      </div>
+      )}
     </div>
   );
 }

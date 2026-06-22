@@ -15,6 +15,8 @@ export type CartItem = {
   preco_unit: number;
   quantidade: number;
   imagem_url?: string | null;
+  sku?: string | null;
+  unidade?: string | null;
 };
 
 type CartCtx = {

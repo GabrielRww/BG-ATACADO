@@ -14,6 +14,8 @@ import { Route as LimpezaRouteImport } from './routes/limpeza'
 import { Route as CarrinhoRouteImport } from './routes/carrinho'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as VendedorIndexRouteImport } from './routes/vendedor.index'
+import { Route as VendedorCadastroRouteImport } from './routes/vendedor.cadastro'
 import { Route as ProdutoIdRouteImport } from './routes/produto.$id'
 import { Route as CategoriaSlugRouteImport } from './routes/categoria.$slug'
 
@@ -42,6 +44,16 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const VendedorIndexRoute = VendedorIndexRouteImport.update({
+  id: '/vendedor/',
+  path: '/vendedor/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const VendedorCadastroRoute = VendedorCadastroRouteImport.update({
+  id: '/vendedor/cadastro',
+  path: '/vendedor/cadastro',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ProdutoIdRoute = ProdutoIdRouteImport.update({
   id: '/produto/$id',
   path: '/produto/$id',
@@ -61,6 +73,8 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/categoria/$slug': typeof CategoriaSlugRoute
   '/produto/$id': typeof ProdutoIdRoute
+  '/vendedor/cadastro': typeof VendedorCadastroRoute
+  '/vendedor/': typeof VendedorIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -70,6 +84,8 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/categoria/$slug': typeof CategoriaSlugRoute
   '/produto/$id': typeof ProdutoIdRoute
+  '/vendedor/cadastro': typeof VendedorCadastroRoute
+  '/vendedor': typeof VendedorIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -80,6 +96,8 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/categoria/$slug': typeof CategoriaSlugRoute
   '/produto/$id': typeof ProdutoIdRoute
+  '/vendedor/cadastro': typeof VendedorCadastroRoute
+  '/vendedor/': typeof VendedorIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -91,6 +109,8 @@ export interface FileRouteTypes {
     | '/login'
     | '/categoria/$slug'
     | '/produto/$id'
+    | '/vendedor/cadastro'
+    | '/vendedor/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -100,6 +120,8 @@ export interface FileRouteTypes {
     | '/login'
     | '/categoria/$slug'
     | '/produto/$id'
+    | '/vendedor/cadastro'
+    | '/vendedor'
   id:
     | '__root__'
     | '/'
@@ -109,6 +131,8 @@ export interface FileRouteTypes {
     | '/login'
     | '/categoria/$slug'
     | '/produto/$id'
+    | '/vendedor/cadastro'
+    | '/vendedor/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -119,6 +143,8 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   CategoriaSlugRoute: typeof CategoriaSlugRoute
   ProdutoIdRoute: typeof ProdutoIdRoute
+  VendedorCadastroRoute: typeof VendedorCadastroRoute
+  VendedorIndexRoute: typeof VendedorIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -158,6 +184,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/vendedor/': {
+      id: '/vendedor/'
+      path: '/vendedor'
+      fullPath: '/vendedor/'
+      preLoaderRoute: typeof VendedorIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/vendedor/cadastro': {
+      id: '/vendedor/cadastro'
+      path: '/vendedor/cadastro'
+      fullPath: '/vendedor/cadastro'
+      preLoaderRoute: typeof VendedorCadastroRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/produto/$id': {
       id: '/produto/$id'
       path: '/produto/$id'
@@ -183,6 +223,8 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   CategoriaSlugRoute: CategoriaSlugRoute,
   ProdutoIdRoute: ProdutoIdRoute,
+  VendedorCadastroRoute: VendedorCadastroRoute,
+  VendedorIndexRoute: VendedorIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
