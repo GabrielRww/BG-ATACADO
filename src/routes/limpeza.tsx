@@ -2,11 +2,12 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft, MessageCircle, Search, Package, Sparkles } from "lucide-react";
+import { ArrowLeft, MessageCircle, Search, Package, Sparkles, ShoppingCart } from "lucide-react";
 
 import logo from "@/assets/bg-logo.png";
 import { supabase } from "@/lib/supabase";
 import type { Produto, Variante } from "@/lib/types";
+import { useCart } from "@/lib/cart";
 
 const WHATS_NUMBER = "5554991242948";
 const WHATS_LINK = `https://wa.me/${WHATS_NUMBER}`;
@@ -103,6 +104,18 @@ function ProductCard({ p }: { p: Produto }) {
   const variante = variantes[sel];
   const precoAtual = variante ? precoPublico(variante) : precoPublico(p);
   const temSeletor = variantes.length > 1;
+  const { addItem } = useCart();
+
+  function adicionar() {
+    addItem({
+      produto_id: p.id,
+      nome: nomeLimpo(p.nome),
+      variante:
+        variante && variante.volume.toLowerCase() !== "único" ? variante.volume : null,
+      preco_unit: precoAtual,
+      imagem_url: p.imagem_url,
+    });
+  }
 
   return (
     <motion.article
@@ -112,7 +125,11 @@ function ProductCard({ p }: { p: Produto }) {
       transition={{ duration: 0.4 }}
       className="group flex flex-col rounded-2xl bg-white ring-1 ring-black/5 shadow-sm overflow-hidden hover:shadow-xl hover:-translate-y-1 transition-all duration-300"
     >
-      <div className="relative aspect-square bg-secondary/40 overflow-hidden">
+      <Link
+        to="/produto/$id"
+        params={{ id: p.id }}
+        className="relative block aspect-square bg-secondary/40 overflow-hidden"
+      >
         {p.imagem_url ? (
           <img
             src={p.imagem_url}
@@ -125,11 +142,15 @@ function ProductCard({ p }: { p: Produto }) {
             <Package size={48} />
           </div>
         )}
-      </div>
+      </Link>
       <div className="flex flex-1 flex-col p-4">
-        <h3 className="font-display tracking-tight font-bold text-[15px] leading-snug text-foreground line-clamp-2">
+        <Link
+          to="/produto/$id"
+          params={{ id: p.id }}
+          className="font-display tracking-tight font-bold text-[15px] leading-snug text-foreground line-clamp-2 hover:text-primary-dark transition-colors"
+        >
           {nomeLimpo(p.nome)}
-        </h3>
+        </Link>
         {p.descricao && (
           <p className="mt-1.5 text-xs text-muted-foreground line-clamp-2">
             {p.descricao}
@@ -181,15 +202,35 @@ function ProductCard({ p }: { p: Produto }) {
           )}
         </div>
 
-        <a
-          href={whatsappLink(p, variante)}
-          target="_blank"
-          rel="noreferrer"
-          className="mt-3 inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white transition-all hover:scale-[1.02]"
-          style={{ background: "var(--color-whatsapp)" }}
-        >
-          <MessageCircle size={16} /> Comprar no WhatsApp
-        </a>
+        {precoAtual > 0 ? (
+          <div className="mt-3 flex gap-2">
+            <Link
+              to="/produto/$id"
+              params={{ id: p.id }}
+              className="inline-flex items-center justify-center rounded-xl px-3 py-2.5 text-sm font-semibold ring-1 ring-black/10 text-foreground/70 hover:border-primary-dark/40 transition-colors"
+            >
+              Ver
+            </Link>
+            <button
+              type="button"
+              onClick={adicionar}
+              className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white transition-all hover:scale-[1.02]"
+              style={{ background: "var(--color-primary-dark)" }}
+            >
+              <ShoppingCart size={16} /> Adicionar
+            </button>
+          </div>
+        ) : (
+          <a
+            href={whatsappLink(p, variante)}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-3 inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white transition-all hover:scale-[1.02]"
+            style={{ background: "var(--color-whatsapp)" }}
+          >
+            <MessageCircle size={16} /> Consultar no WhatsApp
+          </a>
+        )}
       </div>
     </motion.article>
   );
