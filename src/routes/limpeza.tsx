@@ -28,6 +28,10 @@ export const Route = createFileRoute("/limpeza")({
 const brl = (v: number) =>
   v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
+// Preço público = tabela cupom (consumidor); fallback p/ o legado `preco`.
+const precoPublico = (x: { preco: number; preco_cupom?: number | null }) =>
+  x.preco_cupom ?? x.preco;
+
 // Remove o sufixo de volumes do nome (ex.: "Detergente Neutro 5L | 2L | 50L"
 // -> "Detergente Neutro"), já que o volume é mostrado no seletor.
 function nomeLimpo(nome: string) {
@@ -41,7 +45,8 @@ function nomeLimpo(nome: string) {
 
 function whatsappLink(p: Produto, v?: Variante) {
   const vol = v && v.volume.toLowerCase() !== "único" ? ` ${v.volume}` : "";
-  const preco = v ? ` (${brl(v.preco)})` : p.preco ? ` (a partir de ${brl(p.preco)})` : "";
+  const pp = v ? precoPublico(v) : precoPublico(p);
+  const preco = v ? (pp ? ` (${brl(pp)})` : "") : pp ? ` (a partir de ${brl(pp)})` : "";
   const msg = `Olá! Tenho interesse no produto *${nomeLimpo(p.nome)}${vol}*${preco}. Pode me passar mais informações?`;
   return `${WHATS_LINK}?text=${encodeURIComponent(msg)}`;
 }
@@ -49,7 +54,7 @@ function whatsappLink(p: Produto, v?: Variante) {
 async function fetchProdutos(): Promise<Produto[]> {
   const { data, error } = await supabase
     .from("produtos")
-    .select("*, produto_variantes(volume, preco, ordem)")
+    .select("*, produto_variantes(volume, preco, preco_cupom, preco_revenda, preco_empresa, ordem)")
     .eq("categoria", "Limpeza")
     .eq("ativo", true)
     .order("nome");
@@ -96,7 +101,7 @@ function ProductCard({ p }: { p: Produto }) {
   );
   const [sel, setSel] = useState(0);
   const variante = variantes[sel];
-  const precoAtual = variante ? variante.preco : p.preco;
+  const precoAtual = variante ? precoPublico(variante) : precoPublico(p);
   const temSeletor = variantes.length > 1;
 
   return (

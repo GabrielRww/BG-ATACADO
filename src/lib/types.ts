@@ -3,6 +3,10 @@
 export interface Variante {
   volume: string;
   preco: number;
+  // Tabelas de preço (Passo 3). Nulo = "a consultar".
+  preco_revenda?: number | null;
+  preco_cupom?: number | null;
+  preco_empresa?: number | null;
   ordem: number;
 }
 
@@ -15,6 +19,10 @@ export interface Produto {
   subcategoria: string | null;
   marca: string | null;
   preco: number;
+  // Tabelas de preço (Passo 3). Nulo = "a consultar".
+  preco_revenda?: number | null;
+  preco_cupom?: number | null;
+  preco_empresa?: number | null;
   unidade: string | null;
   qtd_por_caixa: number | null;
   qtd_minima: number | null;

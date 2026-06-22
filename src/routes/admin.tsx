@@ -37,7 +37,9 @@ type FormState = {
   subcategoria: string;
   marca: string;
   descricao: string;
-  preco: string;
+  preco_revenda: string;
+  preco_cupom: string;
+  preco_empresa: string;
   imagem_url: string;
   ativo: boolean;
 };
@@ -49,9 +51,19 @@ const FORM_VAZIO: FormState = {
   subcategoria: "",
   marca: "",
   descricao: "",
-  preco: "",
+  preco_revenda: "",
+  preco_cupom: "",
+  preco_empresa: "",
   imagem_url: "",
   ativo: true,
+};
+
+// "12,50" / "12.50" -> 12.5 ; vazio -> null
+const parsePreco = (s: string): number | null => {
+  const t = s.trim();
+  if (!t) return null;
+  const n = Number(t.replace(",", "."));
+  return Number.isFinite(n) ? n : null;
 };
 
 async function fetchTodos(): Promise<Produto[]> {
@@ -133,7 +145,10 @@ function AdminPanel({ email }: { email: string }) {
       subcategoria: p.subcategoria ?? "",
       marca: p.marca ?? "",
       descricao: p.descricao ?? "",
-      preco: p.preco ? String(p.preco) : "",
+      preco_revenda: p.preco_revenda != null ? String(p.preco_revenda) : "",
+      preco_cupom:
+        p.preco_cupom != null ? String(p.preco_cupom) : p.preco ? String(p.preco) : "",
+      preco_empresa: p.preco_empresa != null ? String(p.preco_empresa) : "",
       imagem_url: p.imagem_url ?? "",
       ativo: p.ativo,
     });
@@ -155,13 +170,18 @@ function AdminPanel({ email }: { email: string }) {
     }
     setSalvando(true);
     setMsg(null);
+    const pCupom = parsePreco(form.preco_cupom);
     const payload = {
       nome: form.nome.trim(),
       categoria: form.categoria,
       subcategoria: form.subcategoria.trim() || null,
       marca: form.marca.trim() || null,
       descricao: form.descricao.trim() || null,
-      preco: form.preco ? Number(form.preco.replace(",", ".")) : 0,
+      preco_revenda: parsePreco(form.preco_revenda),
+      preco_cupom: pCupom,
+      preco_empresa: parsePreco(form.preco_empresa),
+      // legado: mantém `preco` = cupom (preço público) p/ compatibilidade.
+      preco: pCupom ?? 0,
       imagem_url: form.imagem_url || null,
       ativo: form.ativo,
     };
@@ -314,9 +334,24 @@ function AdminPanel({ email }: { email: string }) {
                 </Campo>
               </div>
 
-              <Campo label="Preço (opcional)">
-                <input inputMode="decimal" value={form.preco} onChange={(e) => set("preco", e.target.value)} placeholder="0,00" className="inp" />
-              </Campo>
+              <div>
+                <label className="text-sm font-medium text-foreground/80">Tabelas de preço (opcional)</label>
+                <div className="mt-1.5 space-y-2">
+                  <div className="grid grid-cols-[1fr_auto] items-center gap-2">
+                    <span className="text-xs text-foreground/70">Cupom / consumidor <span className="text-muted-foreground">(preço do site)</span></span>
+                    <input inputMode="decimal" value={form.preco_cupom} onChange={(e) => set("preco_cupom", e.target.value)} placeholder="0,00" className="inp w-28 text-right" />
+                  </div>
+                  <div className="grid grid-cols-[1fr_auto] items-center gap-2">
+                    <span className="text-xs text-foreground/70">Revenda <span className="text-muted-foreground">(CNPJ revende)</span></span>
+                    <input inputMode="decimal" value={form.preco_revenda} onChange={(e) => set("preco_revenda", e.target.value)} placeholder="0,00" className="inp w-28 text-right" />
+                  </div>
+                  <div className="grid grid-cols-[1fr_auto] items-center gap-2">
+                    <span className="text-xs text-foreground/70">Empresa <span className="text-muted-foreground">(NF + boleto)</span></span>
+                    <input inputMode="decimal" value={form.preco_empresa} onChange={(e) => set("preco_empresa", e.target.value)} placeholder="0,00" className="inp w-28 text-right" />
+                  </div>
+                </div>
+                <p className="mt-1.5 text-[11px] text-muted-foreground">Vazio = "a consultar". O site público mostra o preço de <b>cupom</b>.</p>
+              </div>
 
               <Campo label="Descrição">
                 <textarea value={form.descricao} onChange={(e) => set("descricao", e.target.value)} rows={3} placeholder="Detalhes do produto..." className="inp resize-none" />
@@ -374,9 +409,14 @@ function AdminPanel({ email }: { email: string }) {
                         </div>
                       </div>
                       <div className="text-right shrink-0">
-                        {p.preco > 0 && (
-                          <div className="text-sm font-semibold" style={{ color: "var(--color-primary-dark)" }}>{brl(p.preco)}</div>
-                        )}
+                        {(() => {
+                          const pc = p.preco_cupom ?? p.preco;
+                          return pc > 0 ? (
+                            <div className="text-sm font-semibold" style={{ color: "var(--color-primary-dark)" }}>{brl(pc)}</div>
+                          ) : (
+                            <div className="text-[11px] text-muted-foreground">a consultar</div>
+                          );
+                        })()}
                         {!p.ativo && <span className="text-[10px] text-amber-600">inativo</span>}
                       </div>
                       <div className="flex items-center gap-1 shrink-0">
@@ -468,15 +508,19 @@ function BulkEditor({ onSaved, totalAtual }: { onSaved: () => void; totalAtual?:
     }
     setSalvando(true);
     setMsg(null);
-    const rows = validas.map((l) => ({
-      nome: l.nome.trim(),
-      categoria: l.categoria,
-      subcategoria: l.subcategoria.trim() || null,
-      marca: l.marca.trim() || null,
-      preco: l.preco ? Number(l.preco.replace(",", ".")) : 0,
-      imagem_url: l.imagem_url || null,
-      ativo: true,
-    }));
+    const rows = validas.map((l) => {
+      const pc = l.preco ? Number(l.preco.replace(",", ".")) : null;
+      return {
+        nome: l.nome.trim(),
+        categoria: l.categoria,
+        subcategoria: l.subcategoria.trim() || null,
+        marca: l.marca.trim() || null,
+        preco_cupom: pc,
+        preco: pc ?? 0,
+        imagem_url: l.imagem_url || null,
+        ativo: true,
+      };
+    });
     const { error } = await supabase.from("produtos").insert(rows);
     setSalvando(false);
     if (error) {
@@ -567,7 +611,7 @@ function BulkEditor({ onSaved, totalAtual }: { onSaved: () => void; totalAtual?:
                   <input value={l.subcategoria} onChange={(e) => setLinha(l._id, { subcategoria: e.target.value })} placeholder="Subcategoria" className="inp" />
                   <input value={l.marca} onChange={(e) => setLinha(l._id, { marca: e.target.value })} placeholder="Marca" className="inp" />
                 </div>
-                <input inputMode="decimal" value={l.preco} onChange={(e) => setLinha(l._id, { preco: e.target.value })} placeholder="Preço (opcional)" className="inp" />
+                <input inputMode="decimal" value={l.preco} onChange={(e) => setLinha(l._id, { preco: e.target.value })} placeholder="Preço cupom (opcional)" className="inp" />
               </div>
             </div>
           </div>

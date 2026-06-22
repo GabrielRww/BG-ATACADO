@@ -35,8 +35,12 @@ export const Route = createFileRoute("/categoria/$slug")({
 const brl = (v: number) =>
   v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
+// Preço público = tabela cupom (consumidor); fallback p/ o legado `preco`.
+const precoPublico = (p: Produto) => p.preco_cupom ?? p.preco;
+
 function whatsappLink(p: Produto) {
-  const preco = p.preco > 0 ? ` (${brl(p.preco)})` : "";
+  const pp = precoPublico(p);
+  const preco = pp > 0 ? ` (${brl(pp)})` : "";
   const msg = `Olá! Tenho interesse no produto *${p.nome}*${preco}. Pode me passar mais informações?`;
   return `${WHATS_LINK}?text=${encodeURIComponent(msg)}`;
 }
@@ -119,9 +123,9 @@ function ProductCard({ p }: { p: Produto }) {
         </h3>
         {p.marca && <span className="text-[11px] text-muted-foreground mt-0.5">{p.marca}</span>}
         <div className="mt-3 flex-1 flex items-end">
-          {p.preco > 0 && (
+          {precoPublico(p) > 0 && (
             <span className="font-display font-bold text-lg leading-tight" style={{ color: "var(--color-primary-dark)" }}>
-              {brl(p.preco)}
+              {brl(precoPublico(p))}
             </span>
           )}
         </div>
@@ -132,7 +136,7 @@ function ProductCard({ p }: { p: Produto }) {
           className="mt-3 inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white transition-all hover:scale-[1.02]"
           style={{ background: "var(--color-whatsapp)" }}
         >
-          <MessageCircle size={16} /> {p.preco > 0 ? "Comprar no WhatsApp" : "Consultar no WhatsApp"}
+          <MessageCircle size={16} /> {precoPublico(p) > 0 ? "Comprar no WhatsApp" : "Consultar no WhatsApp"}
         </a>
       </div>
     </motion.article>
