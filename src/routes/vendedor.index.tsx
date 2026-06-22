@@ -1,12 +1,14 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   Loader2, LogIn, LogOut, Search, Plus, Minus, Trash2, Package,
-  FileDown, MessageCircle, CheckCircle2, ShoppingCart, Clock,
+  FileDown, MessageCircle, CheckCircle2, ShoppingCart, Clock, ChevronLeft, ChevronRight,
 } from "lucide-react";
 
 import logo from "@/assets/bg-logo.png";
 import { supabase } from "@/lib/supabase";
+import { CATEGORIAS } from "@/lib/auth";
 import { useVendedor, buscarCep } from "@/lib/vendedor";
 import {
   brl, salvarPedido, whatsappHref,
@@ -115,6 +117,26 @@ function precoTabela(p: ProdBusca, t: TabelaPreco): number {
   return v ?? p.preco_cupom ?? p.preco ?? 0;
 }
 
+const PAGE_CAT = 300; // produtos por página no catálogo do vendedor
+
+async function fetchCatalogo(
+  categoria: string,
+  busca: string,
+  pagina: number,
+): Promise<{ itens: ProdBusca[]; total: number }> {
+  let qy = supabase
+    .from("produtos")
+    .select("id, nome, preco, preco_revenda, preco_cupom, preco_empresa, imagem_url, sku, unidade", { count: "exact" })
+    .eq("ativo", true);
+  if (categoria) qy = qy.eq("categoria", categoria);
+  const t = busca.trim().replace(/[%,()*]/g, " ");
+  if (t) qy = qy.ilike("nome", `%${t}%`);
+  const from = pagina * PAGE_CAT;
+  const { data, error, count } = await qy.order("nome").range(from, from + PAGE_CAT - 1);
+  if (error) throw error;
+  return { itens: (data as ProdBusca[]) ?? [], total: count ?? 0 };
+}
+
 type ClienteForm = {
   nome: string; telefone: string; doc: string;
   cep: string; endereco: string; numero_end: string; bairro: string;
@@ -140,23 +162,23 @@ function Portal({ nome, vendedorId }: { nome: string; vendedorId: string }) {
 
   const setC = <K extends keyof ClienteForm>(k: K, v: ClienteForm[K]) => setCli((c) => ({ ...c, [k]: v }));
 
-  // Busca de produtos
+  // Catálogo navegável (filtro por categoria + busca + paginação)
   const [q, setQ] = useState("");
-  const [resultados, setResultados] = useState<ProdBusca[]>([]);
+  const [qDeb, setQDeb] = useState("");
+  const [catFiltro, setCatFiltro] = useState("");
+  const [pagCat, setPagCat] = useState(0);
   useEffect(() => {
-    const t = q.trim();
-    if (t.length < 2) { setResultados([]); return; }
-    const id = setTimeout(async () => {
-      const { data } = await supabase
-        .from("produtos")
-        .select("id, nome, preco, preco_revenda, preco_cupom, preco_empresa, imagem_url, sku, unidade")
-        .ilike("nome", `%${t.replace(/[%,()*]/g, " ")}%`)
-        .eq("ativo", true)
-        .limit(15);
-      setResultados((data as ProdBusca[]) ?? []);
-    }, 300);
+    const id = setTimeout(() => setQDeb(q), 300);
     return () => clearTimeout(id);
   }, [q]);
+  useEffect(() => { setPagCat(0); }, [catFiltro, qDeb]);
+  const { data: catalogo, isLoading: carregandoCat } = useQuery({
+    queryKey: ["vendedor", "catalogo", catFiltro, qDeb, pagCat],
+    queryFn: () => fetchCatalogo(catFiltro, qDeb, pagCat),
+  });
+  const produtosCat = catalogo?.itens ?? [];
+  const totalCat = catalogo?.total ?? 0;
+  const totalPagCat = Math.max(1, Math.ceil(totalCat / PAGE_CAT));
 
   async function preencherCep() {
     setBuscandoCep(true);
@@ -308,28 +330,56 @@ function Portal({ nome, vendedorId }: { nome: string; vendedorId: string }) {
             </Bloco>
 
             {/* Itens */}
-            <Bloco titulo="Itens do pedido">
-              <div className="relative">
-                <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar produto..." className="inp pl-10" />
-                {resultados.length > 0 && (
-                  <div className="absolute z-20 mt-1 w-full max-h-72 overflow-auto rounded-xl bg-white ring-1 ring-black/10 shadow-lg">
-                    {resultados.map((p) => (
-                      <button key={p.id} type="button" onClick={() => addProduto(p)} className="flex w-full items-center gap-3 px-3 py-2 text-left hover:bg-secondary">
-                        <div className="h-9 w-9 shrink-0 rounded bg-secondary/60 overflow-hidden flex items-center justify-center">
-                          {p.imagem_url ? <img src={p.imagem_url} alt="" className="h-full w-full object-contain" /> : <Package size={16} className="text-muted-foreground" />}
-                        </div>
-                        <span className="flex-1 text-sm truncate">{p.nome}</span>
-                        <span className="text-sm font-semibold" style={{ color: "var(--color-primary-dark)" }}>{precoTabela(p, tabela) > 0 ? brl(precoTabela(p, tabela)) : "—"}</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
+            <Bloco titulo="Catálogo de produtos">
+              <div className="flex flex-wrap gap-2 mb-3">
+                <div className="relative flex-1 min-w-[160px]">
+                  <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                  <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar produto..." className="inp pl-9" />
+                </div>
+                <select value={catFiltro} onChange={(e) => setCatFiltro(e.target.value)} className="inp w-auto">
+                  <option value="">Todas as categorias</option>
+                  {CATEGORIAS.map((c) => (<option key={c} value={c}>{c}</option>))}
+                </select>
               </div>
 
-              <div className="mt-3 space-y-2">
+              {totalCat > PAGE_CAT && (
+                <div className="flex items-center justify-between text-sm mb-3">
+                  <span className="text-muted-foreground">{pagCat * PAGE_CAT + 1}–{Math.min((pagCat + 1) * PAGE_CAT, totalCat)} de {totalCat}</span>
+                  <div className="flex items-center gap-2">
+                    <button type="button" disabled={pagCat === 0} onClick={() => setPagCat((p) => Math.max(0, p - 1))} className="btn-ghost disabled:opacity-40" aria-label="Anterior"><ChevronLeft size={16} /></button>
+                    <span className="font-medium">Pág. {pagCat + 1}/{totalPagCat}</span>
+                    <button type="button" disabled={pagCat >= totalPagCat - 1} onClick={() => setPagCat((p) => p + 1)} className="btn-ghost disabled:opacity-40" aria-label="Próxima"><ChevronRight size={16} /></button>
+                  </div>
+                </div>
+              )}
+
+              {carregandoCat ? (
+                <div className="flex justify-center py-10"><Loader2 className="animate-spin text-primary-dark" size={24} /></div>
+              ) : produtosCat.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-8 text-center">Nenhum produto encontrado.</p>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {produtosCat.map((p) => {
+                    const preco = precoTabela(p, tabela);
+                    return (
+                      <div key={p.id} className="flex flex-col rounded-xl ring-1 ring-black/5 p-2">
+                        <div className="aspect-square rounded-lg bg-secondary/40 overflow-hidden flex items-center justify-center mb-2">
+                          {p.imagem_url ? <img src={p.imagem_url} alt={p.nome} loading="lazy" className="h-full w-full object-contain" /> : <Package size={28} className="text-muted-foreground" />}
+                        </div>
+                        <div className="text-xs font-medium line-clamp-2 flex-1">{p.nome}</div>
+                        <div className="text-sm font-bold mt-1" style={{ color: "var(--color-primary-dark)" }}>{preco > 0 ? brl(preco) : "—"}</div>
+                        <button type="button" onClick={() => addProduto(p)} className="mt-1.5 inline-flex items-center justify-center gap-1 rounded-lg py-1.5 text-xs font-semibold text-white" style={{ background: "var(--color-primary-dark)" }}><Plus size={13} /> Adicionar</button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </Bloco>
+
+            <Bloco titulo={`Itens do pedido${itens.length ? ` (${itens.length})` : ""}`}>
+              <div className="space-y-2">
                 {itens.length === 0 ? (
-                  <p className="text-sm text-muted-foreground py-4 text-center"><ShoppingCart size={20} className="mx-auto mb-1 opacity-50" />Nenhum item ainda.</p>
+                  <p className="text-sm text-muted-foreground py-4 text-center"><ShoppingCart size={20} className="mx-auto mb-1 opacity-50" />Nenhum item ainda. Adicione pelo catálogo acima.</p>
                 ) : itens.map((i) => (
                   <div key={i.key} className="flex items-center gap-3 rounded-xl ring-1 ring-black/5 p-2">
                     <div className="flex-1 min-w-0">
