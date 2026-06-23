@@ -82,7 +82,7 @@ function LoginVendedor() {
 
   return (
     <main className="min-h-screen bg-background">
-      <div className="container max-w-md py-16">
+      <div className="mx-auto max-w-md px-4 py-16">
         <div className="text-center mb-8">
           <img src={logo} alt="BG Atacado" className="h-14 w-14 rounded-full object-cover mx-auto mb-3" />
           <h1 className="font-display font-bold text-2xl">Portal do vendedor</h1>
