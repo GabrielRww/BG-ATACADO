@@ -96,9 +96,6 @@ function LoginVendedor() {
             {entrando ? <Loader2 size={18} className="animate-spin" /> : <LogIn size={18} />} Entrar
           </button>
         </form>
-        <p className="text-center text-sm text-muted-foreground mt-4">
-          Não tem conta? <Link to="/vendedor/cadastro" className="text-primary-dark font-medium hover:underline">Cadastre-se</Link>
-        </p>
       </div>
     </main>
   );
