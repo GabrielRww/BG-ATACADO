@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   Loader2, LogIn, LogOut, Search, Plus, Minus, Trash2, Package,
-  FileDown, MessageCircle, CheckCircle2, ShoppingCart, Clock, ChevronLeft, ChevronRight, Check,
+  FileDown, MessageCircle, CheckCircle2, ShoppingCart, Clock, ChevronLeft, ChevronRight,
 } from "lucide-react";
 
 import logo from "@/assets/bg-logo.png";
@@ -14,7 +14,7 @@ import {
   brl, salvarPedido, whatsappHref,
   type DadosPedido, type FormaPagamento, type TipoFiscal, type TabelaPreco,
 } from "@/lib/pedidos";
-import { gerarPedidoPDF, gerarCatalogoPDF } from "@/lib/pedidoPdf";
+import { gerarPedidoPDF, gerarCatalogoPDF, type CatalogoCols } from "@/lib/pedidoPdf";
 import type { CartItem } from "@/lib/cart";
 
 export const Route = createFileRoute("/vendedor/")({
@@ -180,16 +180,8 @@ function Portal({ nome, vendedorId }: { nome: string; vendedorId: string }) {
   const totalCat = catalogo?.total ?? 0;
   const totalPagCat = Math.max(1, Math.ceil(totalCat / PAGE_CAT));
 
-  // Aba (fazer pedido | catálogo PDF) e seleção do catálogo
+  // Aba: fazer pedido | catálogo PDF
   const [view, setView] = useState<"pedido" | "catalogo">("pedido");
-  const [sel, setSel] = useState<Record<string, ProdBusca>>({});
-  const toggleSel = (p: ProdBusca) =>
-    setSel((s) => { const n = { ...s }; if (n[p.id]) delete n[p.id]; else n[p.id] = p; return n; });
-  const LBL_TABELA: Record<TabelaPreco, string> = { revenda: "Revenda", cupom: "Cupom/Consumidor", empresa: "Empresa (NF)" };
-  function gerarCatalogo() {
-    const lista = Object.values(sel).map((p) => ({ nome: p.nome, imagem_url: p.imagem_url, preco: precoTabela(p, tabela) }));
-    gerarCatalogoPDF(lista, { tabelaLabel: LBL_TABELA[tabela] });
-  }
 
   async function preencherCep() {
     setBuscandoCep(true);
@@ -308,63 +300,7 @@ function Portal({ nome, vendedorId }: { nome: string; vendedorId: string }) {
           </div>
 
           {view === "catalogo" ? (
-            <div className="space-y-5">
-              <Bloco titulo="Selecionar produtos para o catálogo">
-                <div className="flex flex-wrap items-center gap-2 mb-3">
-                  <div className="relative flex-1 min-w-[160px]">
-                    <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                    <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar produto..." className="inp pl-9" />
-                  </div>
-                  <select value={catFiltro} onChange={(e) => setCatFiltro(e.target.value)} className="inp w-auto">
-                    <option value="">Todas as categorias</option>
-                    {CATEGORIAS.map((c) => (<option key={c} value={c}>{c}</option>))}
-                  </select>
-                  <select value={tabela} onChange={(e) => setTabela(e.target.value as TabelaPreco)} className="inp w-auto" title="Preço mostrado no catálogo">
-                    <option value="revenda">Revenda</option>
-                    <option value="cupom">Cupom/Consumidor</option>
-                    <option value="empresa">Empresa (NF)</option>
-                  </select>
-                </div>
-                {totalCat > PAGE_CAT && (
-                  <div className="flex items-center justify-between text-sm mb-3">
-                    <span className="text-muted-foreground">{pagCat * PAGE_CAT + 1}–{Math.min((pagCat + 1) * PAGE_CAT, totalCat)} de {totalCat}</span>
-                    <div className="flex items-center gap-2">
-                      <button type="button" disabled={pagCat === 0} onClick={() => setPagCat((p) => Math.max(0, p - 1))} className="btn-ghost disabled:opacity-40"><ChevronLeft size={16} /></button>
-                      <span className="font-medium">Pág. {pagCat + 1}/{totalPagCat}</span>
-                      <button type="button" disabled={pagCat >= totalPagCat - 1} onClick={() => setPagCat((p) => p + 1)} className="btn-ghost disabled:opacity-40"><ChevronRight size={16} /></button>
-                    </div>
-                  </div>
-                )}
-                {carregandoCat ? (
-                  <div className="flex justify-center py-10"><Loader2 className="animate-spin text-primary-dark" size={24} /></div>
-                ) : (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                    {produtosCat.map((p) => {
-                      const escolhido = !!sel[p.id];
-                      const preco = precoTabela(p, tabela);
-                      return (
-                        <button key={p.id} type="button" onClick={() => toggleSel(p)} className={`flex flex-col rounded-xl p-2 text-left transition ring-2 ${escolhido ? "ring-[var(--color-primary-dark)] bg-primary-dark/5" : "ring-black/5 hover:ring-black/15"}`}>
-                          <div className="relative aspect-square rounded-lg bg-secondary/40 overflow-hidden flex items-center justify-center mb-2">
-                            {p.imagem_url ? <img src={p.imagem_url} alt={p.nome} loading="lazy" className="h-full w-full object-contain" /> : <Package size={28} className="text-muted-foreground" />}
-                            {escolhido && <span className="absolute top-1 right-1 rounded-full text-white p-0.5" style={{ background: "var(--color-primary-dark)" }}><Check size={14} /></span>}
-                          </div>
-                          <div className="text-xs font-medium line-clamp-2 flex-1">{p.nome}</div>
-                          <div className="text-sm font-bold mt-1" style={{ color: "var(--color-primary-dark)" }}>{preco > 0 ? brl(preco) : "—"}</div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </Bloco>
-
-              <div className="sticky bottom-4 z-30 bg-white rounded-2xl ring-1 ring-black/5 shadow-lg p-3 flex items-center justify-between gap-3">
-                <span className="text-sm"><b>{Object.keys(sel).length}</b> produto(s) selecionado(s)</span>
-                <div className="flex gap-2">
-                  {Object.keys(sel).length > 0 && <button onClick={() => setSel({})} className="btn-ghost">Limpar</button>}
-                  <button onClick={gerarCatalogo} disabled={Object.keys(sel).length === 0} className="btn-primary disabled:opacity-50"><FileDown size={18} /> Gerar catálogo PDF</button>
-                </div>
-              </div>
-            </div>
+            <CatalogoBuilder />
           ) : (
           <div className="grid lg:grid-cols-[1fr_380px] gap-8 items-start">
           {/* Coluna esquerda: cliente + itens */}
@@ -525,4 +461,162 @@ function Bloco({ titulo, children }: { titulo: string; children: React.ReactNode
 }
 function Campo({ label, children }: { label: string; children: React.ReactNode }) {
   return (<div><label className="text-sm font-medium text-foreground/80">{label}</label><div className="mt-1.5">{children}</div></div>);
+}
+
+// ── Construtor de catálogo PDF (accordion por categoria + colunas) ──
+
+type CatProd = {
+  id: string; nome: string; sku: string | null; imagem_url: string | null; categoria: string | null;
+  preco_revenda: number | null; preco_cupom: number | null; preco_empresa: number | null;
+};
+
+const CAT_FIELDS = "id, nome, sku, imagem_url, categoria, preco_revenda, preco_cupom, preco_empresa";
+
+async function fetchTodosCat(cat: string): Promise<CatProd[]> {
+  const PAGE = 1000;
+  let from = 0;
+  const all: CatProd[] = [];
+  for (;;) {
+    const { data, error } = await supabase
+      .from("produtos").select(CAT_FIELDS)
+      .eq("categoria", cat).eq("ativo", true).order("nome").range(from, from + PAGE - 1);
+    if (error) throw error;
+    const lote = (data as CatProd[]) ?? [];
+    all.push(...lote);
+    if (lote.length < PAGE) break;
+    from += PAGE;
+    if (from > 50000) break;
+  }
+  return all;
+}
+
+function CatalogoBuilder() {
+  const [cols, setCols] = useState<CatalogoCols>({ foto: true, codigo: true, produto: true, revenda: false, cupom: true, empresa: false });
+  const [sel, setSel] = useState<Record<string, CatProd>>({});
+  const [aberta, setAberta] = useState<string | null>(null);
+  const [buscaCat, setBuscaCat] = useState("");
+  const [gerando, setGerando] = useState(false);
+  const [carregandoCat, setCarregandoCat] = useState<string | null>(null);
+
+  const { data: totais } = useQuery({
+    queryKey: ["catalogo", "totais"],
+    queryFn: async () => {
+      const out: Record<string, number> = {};
+      await Promise.all(CATEGORIAS.map(async (c) => {
+        const { count } = await supabase.from("produtos").select("id", { count: "exact", head: true }).eq("categoria", c).eq("ativo", true);
+        out[c] = count ?? 0;
+      }));
+      return out;
+    },
+  });
+
+  const { data: prodsAberta, isLoading: carregandoLista } = useQuery({
+    queryKey: ["catalogo", "lista", aberta],
+    enabled: !!aberta,
+    queryFn: () => fetchTodosCat(aberta!),
+  });
+
+  const selCount = (cat: string) => Object.values(sel).filter((p) => p.categoria === cat).length;
+  const totalSel = Object.keys(sel).length;
+
+  async function marcarCat(cat: string, on: boolean) {
+    if (!on) {
+      setSel((s) => { const n = { ...s }; Object.values(s).forEach((p) => { if (p.categoria === cat) delete n[p.id]; }); return n; });
+      return;
+    }
+    setCarregandoCat(cat);
+    const all = aberta === cat && prodsAberta ? prodsAberta : await fetchTodosCat(cat);
+    setSel((s) => { const n = { ...s }; all.forEach((p) => { n[p.id] = p; }); return n; });
+    setCarregandoCat(null);
+  }
+  const toggleProd = (p: CatProd) =>
+    setSel((s) => { const n = { ...s }; if (n[p.id]) delete n[p.id]; else n[p.id] = p; return n; });
+
+  async function gerar() {
+    setGerando(true);
+    try { await gerarCatalogoPDF(Object.values(sel), cols); } finally { setGerando(false); }
+  }
+
+  const COLS: { key: keyof CatalogoCols; label: string }[] = [
+    { key: "foto", label: "Foto" }, { key: "codigo", label: "Código" }, { key: "produto", label: "Produto" },
+    { key: "revenda", label: "Preço revenda" }, { key: "cupom", label: "Preço cliente" }, { key: "empresa", label: "Preço empresa (NF)" },
+  ];
+
+  const listaFiltrada = (prodsAberta ?? []).filter(
+    (p) => !buscaCat.trim() || p.nome.toLowerCase().includes(buscaCat.toLowerCase()),
+  );
+
+  return (
+    <div className="space-y-5 pb-24">
+      <Bloco titulo="Produtos incluídos">
+        <p className="text-xs text-muted-foreground mb-3">Marque a categoria inteira ou abra para escolher produto a produto.</p>
+        <div className="space-y-2">
+          {CATEGORIAS.map((cat) => {
+            const total = totais?.[cat] ?? 0;
+            const sc = selCount(cat);
+            const aberto = aberta === cat;
+            return (
+              <div key={cat} className="rounded-xl ring-1 ring-black/5">
+                <div className="flex items-center gap-2 p-2.5">
+                  <input
+                    type="checkbox"
+                    checked={total > 0 && sc >= total}
+                    ref={(el) => { if (el) el.indeterminate = sc > 0 && sc < total; }}
+                    onChange={(e) => marcarCat(cat, e.target.checked)}
+                    className="h-4 w-4 accent-[var(--color-primary-dark)]"
+                  />
+                  <button type="button" onClick={() => { setAberta(aberto ? null : cat); setBuscaCat(""); }} className="flex flex-1 items-center gap-2 text-left">
+                    <ChevronRight size={16} className={`transition-transform ${aberto ? "rotate-90" : ""}`} />
+                    <span className="font-medium text-sm">{cat}</span>
+                    <span className="text-xs text-muted-foreground">{sc}/{total}</span>
+                    {carregandoCat === cat && <Loader2 size={14} className="animate-spin text-primary-dark" />}
+                  </button>
+                </div>
+                {aberto && (
+                  <div className="border-t p-2.5">
+                    <input value={buscaCat} onChange={(e) => setBuscaCat(e.target.value)} placeholder="Buscar nessa categoria..." className="inp mb-2" />
+                    {carregandoLista ? (
+                      <div className="flex justify-center py-6"><Loader2 className="animate-spin text-primary-dark" size={20} /></div>
+                    ) : (
+                      <div className="max-h-72 overflow-auto space-y-1">
+                        {listaFiltrada.slice(0, 400).map((p) => (
+                          <label key={p.id} className="flex items-center gap-2 text-sm py-1 px-1 rounded cursor-pointer hover:bg-secondary/50">
+                            <input type="checkbox" checked={!!sel[p.id]} onChange={() => toggleProd(p)} className="h-4 w-4 accent-[var(--color-primary-dark)]" />
+                            <span className="flex-1 truncate">{p.nome}</span>
+                          </label>
+                        ))}
+                        {listaFiltrada.length > 400 && <p className="text-xs text-muted-foreground py-1">Mostrando 400. Refine a busca.</p>}
+                        {listaFiltrada.length === 0 && <p className="text-xs text-muted-foreground py-2 text-center">Nada encontrado.</p>}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </Bloco>
+
+      <Bloco titulo="Colunas no relatório">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+          {COLS.map(({ key, label }) => (
+            <label key={key} className="flex items-center gap-2 text-sm rounded-lg ring-1 ring-black/5 px-3 py-2 cursor-pointer">
+              <input type="checkbox" checked={cols[key]} onChange={(e) => setCols((c) => ({ ...c, [key]: e.target.checked }))} className="h-4 w-4 accent-[var(--color-primary-dark)]" />
+              {label}
+            </label>
+          ))}
+        </div>
+      </Bloco>
+
+      <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 w-[min(680px,92vw)] bg-white rounded-2xl ring-1 ring-black/5 shadow-lg p-3 flex items-center justify-between gap-3">
+        <span className="text-sm"><b>{totalSel}</b> produto(s)</span>
+        <div className="flex gap-2">
+          {totalSel > 0 && <button onClick={() => setSel({})} className="btn-ghost">Limpar</button>}
+          <button onClick={gerar} disabled={totalSel === 0 || gerando} className="btn-primary disabled:opacity-50">
+            {gerando ? <Loader2 size={18} className="animate-spin" /> : <FileDown size={18} />} Gerar catálogo PDF
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }

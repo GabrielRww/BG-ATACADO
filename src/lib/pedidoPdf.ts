@@ -172,14 +172,21 @@ export async function gerarPedidoPDF(
   return nome;
 }
 
-// Catálogo virtual em PDF (grade de produtos com foto/nome/preço) p/ o vendedor mostrar ao cliente.
+export type CatalogoCols = {
+  foto: boolean; codigo: boolean; produto: boolean;
+  revenda: boolean; cupom: boolean; empresa: boolean;
+};
+export type CatalogoProduto = {
+  nome: string; sku?: string | null; imagem_url?: string | null;
+  preco_revenda?: number | null; preco_cupom?: number | null; preco_empresa?: number | null;
+};
+
+// Catálogo virtual em PDF (tabela com colunas selecionáveis) p/ o vendedor mostrar ao cliente.
 export async function gerarCatalogoPDF(
-  produtos: { nome: string; imagem_url?: string | null; preco: number }[],
-  opts?: { tabelaLabel?: string },
+  produtos: CatalogoProduto[],
+  cols: CatalogoCols,
 ): Promise<string> {
   const doc = new jsPDF();
-  const W = doc.internal.pageSize.getWidth();
-  const H = doc.internal.pageSize.getHeight();
 
   // Cabeçalho
   const logo = await toDataUrl(logoUrl);
@@ -190,56 +197,61 @@ export async function gerarCatalogoPDF(
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9);
   doc.setTextColor(110);
-  doc.text(`${EMPRESA.nome}${opts?.tabelaLabel ? ` • ${opts.tabelaLabel}` : ""}`, logo ? 36 : 14, 24);
+  doc.text(EMPRESA.nome, logo ? 36 : 14, 24);
   doc.setTextColor(0);
 
-  // Pré-carrega imagens
-  const imgs = await Promise.all(
-    produtos.map((p) => (p.imagem_url ? toDataUrl(p.imagem_url) : Promise.resolve(null))),
+  // Monta colunas conforme seleção
+  const keys: string[] = [];
+  const head: string[] = [];
+  if (cols.foto) { keys.push("foto"); head.push("Foto"); }
+  if (cols.codigo) { keys.push("codigo"); head.push("Código"); }
+  if (cols.produto) { keys.push("produto"); head.push("Produto"); }
+  if (cols.revenda) { keys.push("revenda"); head.push("Revenda"); }
+  if (cols.cupom) { keys.push("cupom"); head.push("Preço cliente"); }
+  if (cols.empresa) { keys.push("empresa"); head.push("Empresa (NF)"); }
+  const fotoIdx = keys.indexOf("foto");
+
+  const money = (v?: number | null) => (v && v > 0 ? brl(v) : "—");
+  const body = produtos.map((p) =>
+    keys.map((k) => {
+      switch (k) {
+        case "foto": return "";
+        case "codigo": return p.sku ?? "";
+        case "produto": return p.nome;
+        case "revenda": return money(p.preco_revenda);
+        case "cupom": return money(p.preco_cupom);
+        case "empresa": return money(p.preco_empresa);
+        default: return "";
+      }
+    }),
   );
 
-  const cols = 3;
-  const gap = 6;
-  const m = 14;
-  const cellW = (W - m * 2 - gap * (cols - 1)) / cols;
-  const imgH = cellW;
-  const cellH = imgH + 18;
-  let x = m;
-  let y = 34;
-  let col = 0;
+  const imgs: (string | null)[] = cols.foto
+    ? await Promise.all(produtos.map((p) => (p.imagem_url ? toDataUrl(p.imagem_url) : Promise.resolve(null))))
+    : [];
 
-  for (let i = 0; i < produtos.length; i++) {
-    if (col === 0 && y + cellH > H - m) {
-      doc.addPage();
-      y = 18;
-    }
-    const p = produtos[i];
-    // moldura
-    doc.setDrawColor(225);
-    doc.roundedRect(x, y, cellW, cellH, 2, 2);
-    // imagem
-    const d = imgs[i];
-    if (d) {
-      try { doc.addImage(d, "PNG", x + 4, y + 3, cellW - 8, imgH - 6); } catch { /* ignora */ }
-    }
-    // nome
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(8);
-    const nomeTxt = doc.splitTextToSize(p.nome, cellW - 6).slice(0, 2);
-    doc.text(nomeTxt, x + 3, y + imgH + 2);
-    // preço
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(10);
-    doc.setTextColor(26, 92, 58);
-    doc.text(p.preco > 0 ? brl(p.preco) : "Consultar", x + 3, y + cellH - 3);
-    doc.setTextColor(0);
+  const colStyles: Record<number, { cellWidth?: number; halign?: "right" }> = {};
+  if (cols.foto) colStyles[fotoIdx] = { cellWidth: 18 };
+  keys.forEach((k, i) => { if (k === "revenda" || k === "cupom" || k === "empresa") colStyles[i] = { halign: "right" }; });
 
-    col++;
-    x += cellW + gap;
-    if (col === cols) { col = 0; x = m; y += cellH + gap; }
-  }
+  autoTable(doc, {
+    startY: 32,
+    head: [head],
+    body,
+    headStyles: { fillColor: [26, 92, 58], fontSize: 8 },
+    styles: { fontSize: 8, valign: "middle", minCellHeight: cols.foto ? 16 : 7 },
+    columnStyles: colStyles,
+    didDrawCell: (data) => {
+      if (cols.foto && data.section === "body" && data.column.index === fotoIdx) {
+        const d = imgs[data.row.index];
+        if (d) {
+          const s = 13;
+          try { doc.addImage(d, "PNG", data.cell.x + 1.5, data.cell.y + (data.cell.height - s) / 2, s, s); } catch { /* ignora */ }
+        }
+      }
+    },
+  });
 
-  const nome = "catalogo-bg.pdf";
-  doc.save(nome);
-  return nome;
+  doc.save("catalogo-bg.pdf");
+  return "catalogo-bg.pdf";
 }
