@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   Loader2, LogIn, LogOut, Search, Plus, Minus, Trash2, Package,
-  FileDown, MessageCircle, CheckCircle2, ShoppingCart, Clock, ChevronLeft, ChevronRight,
+  FileDown, MessageCircle, CheckCircle2, ShoppingCart, Clock, ChevronLeft, ChevronRight, Check,
 } from "lucide-react";
 
 import logo from "@/assets/bg-logo.png";
@@ -14,7 +14,7 @@ import {
   brl, salvarPedido, whatsappHref,
   type DadosPedido, type FormaPagamento, type TipoFiscal, type TabelaPreco,
 } from "@/lib/pedidos";
-import { gerarPedidoPDF } from "@/lib/pedidoPdf";
+import { gerarPedidoPDF, gerarCatalogoPDF } from "@/lib/pedidoPdf";
 import type { CartItem } from "@/lib/cart";
 
 export const Route = createFileRoute("/vendedor/")({
@@ -180,6 +180,17 @@ function Portal({ nome, vendedorId }: { nome: string; vendedorId: string }) {
   const totalCat = catalogo?.total ?? 0;
   const totalPagCat = Math.max(1, Math.ceil(totalCat / PAGE_CAT));
 
+  // Aba (fazer pedido | catálogo PDF) e seleção do catálogo
+  const [view, setView] = useState<"pedido" | "catalogo">("pedido");
+  const [sel, setSel] = useState<Record<string, ProdBusca>>({});
+  const toggleSel = (p: ProdBusca) =>
+    setSel((s) => { const n = { ...s }; if (n[p.id]) delete n[p.id]; else n[p.id] = p; return n; });
+  const LBL_TABELA: Record<TabelaPreco, string> = { revenda: "Revenda", cupom: "Cupom/Consumidor", empresa: "Empresa (NF)" };
+  function gerarCatalogo() {
+    const lista = Object.values(sel).map((p) => ({ nome: p.nome, imagem_url: p.imagem_url, preco: precoTabela(p, tabela) }));
+    gerarCatalogoPDF(lista, { tabelaLabel: LBL_TABELA[tabela] });
+  }
+
   async function preencherCep() {
     setBuscandoCep(true);
     const r = await buscarCep(cli.cep);
@@ -289,7 +300,73 @@ function Portal({ nome, vendedorId }: { nome: string; vendedorId: string }) {
           </div>
         </div>
       ) : (
-        <div className="container-wide py-8 grid lg:grid-cols-[1fr_380px] gap-8 items-start">
+        <div className="container-wide py-8">
+          <div className="flex gap-1 rounded-xl bg-secondary p-1 max-w-md mb-6">
+            {([["pedido", "Fazer pedido"], ["catalogo", "Catálogo PDF"]] as const).map(([v, label]) => (
+              <button key={v} type="button" onClick={() => setView(v)} className={`flex-1 rounded-lg py-2 text-sm font-semibold transition-colors ${view === v ? "bg-white shadow-sm text-primary-dark" : "text-foreground/60"}`}>{label}</button>
+            ))}
+          </div>
+
+          {view === "catalogo" ? (
+            <div className="space-y-5">
+              <Bloco titulo="Selecionar produtos para o catálogo">
+                <div className="flex flex-wrap items-center gap-2 mb-3">
+                  <div className="relative flex-1 min-w-[160px]">
+                    <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                    <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar produto..." className="inp pl-9" />
+                  </div>
+                  <select value={catFiltro} onChange={(e) => setCatFiltro(e.target.value)} className="inp w-auto">
+                    <option value="">Todas as categorias</option>
+                    {CATEGORIAS.map((c) => (<option key={c} value={c}>{c}</option>))}
+                  </select>
+                  <select value={tabela} onChange={(e) => setTabela(e.target.value as TabelaPreco)} className="inp w-auto" title="Preço mostrado no catálogo">
+                    <option value="revenda">Revenda</option>
+                    <option value="cupom">Cupom/Consumidor</option>
+                    <option value="empresa">Empresa (NF)</option>
+                  </select>
+                </div>
+                {totalCat > PAGE_CAT && (
+                  <div className="flex items-center justify-between text-sm mb-3">
+                    <span className="text-muted-foreground">{pagCat * PAGE_CAT + 1}–{Math.min((pagCat + 1) * PAGE_CAT, totalCat)} de {totalCat}</span>
+                    <div className="flex items-center gap-2">
+                      <button type="button" disabled={pagCat === 0} onClick={() => setPagCat((p) => Math.max(0, p - 1))} className="btn-ghost disabled:opacity-40"><ChevronLeft size={16} /></button>
+                      <span className="font-medium">Pág. {pagCat + 1}/{totalPagCat}</span>
+                      <button type="button" disabled={pagCat >= totalPagCat - 1} onClick={() => setPagCat((p) => p + 1)} className="btn-ghost disabled:opacity-40"><ChevronRight size={16} /></button>
+                    </div>
+                  </div>
+                )}
+                {carregandoCat ? (
+                  <div className="flex justify-center py-10"><Loader2 className="animate-spin text-primary-dark" size={24} /></div>
+                ) : (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                    {produtosCat.map((p) => {
+                      const escolhido = !!sel[p.id];
+                      const preco = precoTabela(p, tabela);
+                      return (
+                        <button key={p.id} type="button" onClick={() => toggleSel(p)} className={`flex flex-col rounded-xl p-2 text-left transition ring-2 ${escolhido ? "ring-[var(--color-primary-dark)] bg-primary-dark/5" : "ring-black/5 hover:ring-black/15"}`}>
+                          <div className="relative aspect-square rounded-lg bg-secondary/40 overflow-hidden flex items-center justify-center mb-2">
+                            {p.imagem_url ? <img src={p.imagem_url} alt={p.nome} loading="lazy" className="h-full w-full object-contain" /> : <Package size={28} className="text-muted-foreground" />}
+                            {escolhido && <span className="absolute top-1 right-1 rounded-full text-white p-0.5" style={{ background: "var(--color-primary-dark)" }}><Check size={14} /></span>}
+                          </div>
+                          <div className="text-xs font-medium line-clamp-2 flex-1">{p.nome}</div>
+                          <div className="text-sm font-bold mt-1" style={{ color: "var(--color-primary-dark)" }}>{preco > 0 ? brl(preco) : "—"}</div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </Bloco>
+
+              <div className="sticky bottom-4 z-30 bg-white rounded-2xl ring-1 ring-black/5 shadow-lg p-3 flex items-center justify-between gap-3">
+                <span className="text-sm"><b>{Object.keys(sel).length}</b> produto(s) selecionado(s)</span>
+                <div className="flex gap-2">
+                  {Object.keys(sel).length > 0 && <button onClick={() => setSel({})} className="btn-ghost">Limpar</button>}
+                  <button onClick={gerarCatalogo} disabled={Object.keys(sel).length === 0} className="btn-primary disabled:opacity-50"><FileDown size={18} /> Gerar catálogo PDF</button>
+                </div>
+              </div>
+            </div>
+          ) : (
+          <div className="grid lg:grid-cols-[1fr_380px] gap-8 items-start">
           {/* Coluna esquerda: cliente + itens */}
           <div className="space-y-6">
             {/* Tabela de preço */}
@@ -430,6 +507,8 @@ function Portal({ nome, vendedorId }: { nome: string; vendedorId: string }) {
               {enviando ? <Loader2 size={18} className="animate-spin" /> : <CheckCircle2 size={18} />} Enviar pedido
             </button>
           </div>
+          </div>
+          )}
         </div>
       )}
     </main>

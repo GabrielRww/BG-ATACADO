@@ -171,3 +171,75 @@ export async function gerarPedidoPDF(
   doc.save(nome);
   return nome;
 }
+
+// Catálogo virtual em PDF (grade de produtos com foto/nome/preço) p/ o vendedor mostrar ao cliente.
+export async function gerarCatalogoPDF(
+  produtos: { nome: string; imagem_url?: string | null; preco: number }[],
+  opts?: { tabelaLabel?: string },
+): Promise<string> {
+  const doc = new jsPDF();
+  const W = doc.internal.pageSize.getWidth();
+  const H = doc.internal.pageSize.getHeight();
+
+  // Cabeçalho
+  const logo = await toDataUrl(logoUrl);
+  if (logo) doc.addImage(logo, "PNG", 14, 10, 18, 18);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(16);
+  doc.text("Catálogo de Produtos", logo ? 36 : 14, 18);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9);
+  doc.setTextColor(110);
+  doc.text(`${EMPRESA.nome}${opts?.tabelaLabel ? ` • ${opts.tabelaLabel}` : ""}`, logo ? 36 : 14, 24);
+  doc.setTextColor(0);
+
+  // Pré-carrega imagens
+  const imgs = await Promise.all(
+    produtos.map((p) => (p.imagem_url ? toDataUrl(p.imagem_url) : Promise.resolve(null))),
+  );
+
+  const cols = 3;
+  const gap = 6;
+  const m = 14;
+  const cellW = (W - m * 2 - gap * (cols - 1)) / cols;
+  const imgH = cellW;
+  const cellH = imgH + 18;
+  let x = m;
+  let y = 34;
+  let col = 0;
+
+  for (let i = 0; i < produtos.length; i++) {
+    if (col === 0 && y + cellH > H - m) {
+      doc.addPage();
+      y = 18;
+    }
+    const p = produtos[i];
+    // moldura
+    doc.setDrawColor(225);
+    doc.roundedRect(x, y, cellW, cellH, 2, 2);
+    // imagem
+    const d = imgs[i];
+    if (d) {
+      try { doc.addImage(d, "PNG", x + 4, y + 3, cellW - 8, imgH - 6); } catch { /* ignora */ }
+    }
+    // nome
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8);
+    const nomeTxt = doc.splitTextToSize(p.nome, cellW - 6).slice(0, 2);
+    doc.text(nomeTxt, x + 3, y + imgH + 2);
+    // preço
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.setTextColor(26, 92, 58);
+    doc.text(p.preco > 0 ? brl(p.preco) : "Consultar", x + 3, y + cellH - 3);
+    doc.setTextColor(0);
+
+    col++;
+    x += cellW + gap;
+    if (col === cols) { col = 0; x = m; y += cellH + gap; }
+  }
+
+  const nome = "catalogo-bg.pdf";
+  doc.save(nome);
+  return nome;
+}
