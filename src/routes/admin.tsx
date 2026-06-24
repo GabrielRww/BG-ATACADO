@@ -120,6 +120,9 @@ function AdminPanel({ email }: { email: string }) {
     return () => clearTimeout(id);
   }, [busca]);
   useEffect(() => { setPagina(0); }, [filtroCat, buscaDeb]);
+  const [selSet, setSelSet] = useState<Set<string>>(new Set());
+  const toggleSel = (id: string) => setSelSet((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  useEffect(() => { setSelSet(new Set()); }, [filtroCat, buscaDeb, pagina]);
   const { data: pageData, isLoading } = useQuery({
     queryKey: ["admin", "produtos", filtroCat, buscaDeb, pagina],
     queryFn: () => fetchProdutosAdmin(filtroCat, buscaDeb, pagina),
@@ -255,6 +258,15 @@ function AdminPanel({ email }: { email: string }) {
       return;
     }
     if (form.id === p.id) cancelar();
+    invalidar();
+  }
+
+  async function excluirSelecionados() {
+    if (selSet.size === 0) return;
+    if (!window.confirm(`Excluir ${selSet.size} produto(s) selecionado(s)? Esta ação não pode ser desfeita.`)) return;
+    const { error } = await supabase.from("produtos").delete().in("id", [...selSet]);
+    if (error) { setMsg("Erro ao excluir: " + error.message); return; }
+    setSelSet(new Set());
     invalidar();
   }
 
@@ -475,8 +487,33 @@ function AdminPanel({ email }: { email: string }) {
                 </div>
               ) : (
                 <div className="space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={produtos.length > 0 && produtos.every((p) => selSet.has(p.id))}
+                        onChange={(e) => setSelSet(e.target.checked ? new Set(produtos.map((p) => p.id)) : new Set())}
+                        className="h-4 w-4 accent-[var(--color-primary-dark)]"
+                      />
+                      Selecionar todos desta página
+                    </label>
+                    {selSet.size > 0 && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-muted-foreground">{selSet.size} selec.</span>
+                        <button onClick={excluirSelecionados} className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-semibold text-white bg-red-600 hover:bg-red-700">
+                          <Trash2 size={15} /> Excluir selecionados
+                        </button>
+                      </div>
+                    )}
+                  </div>
                   {produtos.map((p) => (
                     <div key={p.id} className="flex items-center gap-3 bg-white rounded-xl ring-1 ring-black/5 p-2.5 hover:shadow-sm transition-shadow">
+                      <input
+                        type="checkbox"
+                        checked={selSet.has(p.id)}
+                        onChange={() => toggleSel(p.id)}
+                        className="h-4 w-4 shrink-0 accent-[var(--color-primary-dark)]"
+                      />
                       <div className="h-14 w-14 shrink-0 rounded-lg bg-secondary/50 overflow-hidden flex items-center justify-center">
                         {p.imagem_url ? (
                           <img src={p.imagem_url} alt="" loading="lazy" className="h-full w-full object-contain" />
