@@ -385,33 +385,34 @@ function Portal({ nome, vendedorId }: { nome: string; vendedorId: string }) {
                 </div>
               )}
             </Bloco>
-
-            <Bloco titulo={`Itens do pedido${itens.length ? ` (${itens.length})` : ""}`}>
-              <div className="space-y-2">
-                {itens.length === 0 ? (
-                  <p className="text-sm text-muted-foreground py-4 text-center"><ShoppingCart size={20} className="mx-auto mb-1 opacity-50" />Nenhum item ainda. Adicione pelo catálogo acima.</p>
-                ) : itens.map((i) => (
-                  <div key={i.key} className="flex items-center gap-3 rounded-xl ring-1 ring-black/5 p-2">
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium truncate">{i.nome}</div>
-                      <div className="text-xs text-muted-foreground">{brl(i.preco_unit)}</div>
-                    </div>
-                    <div className="inline-flex items-center rounded-lg ring-1 ring-black/10 overflow-hidden">
-                      <button onClick={() => setQtd(i.key, i.quantidade - 1)} className="px-2 py-1.5 hover:bg-secondary"><Minus size={14} /></button>
-                      <span className="w-8 text-center text-sm">{i.quantidade}</span>
-                      <button onClick={() => setQtd(i.key, i.quantidade + 1)} className="px-2 py-1.5 hover:bg-secondary"><Plus size={14} /></button>
-                    </div>
-                    <span className="w-20 text-right text-sm font-semibold">{brl(i.preco_unit * i.quantidade)}</span>
-                    <button onClick={() => setQtd(i.key, 0)} className="p-1.5 rounded text-foreground/50 hover:text-red-600"><Trash2 size={15} /></button>
-                  </div>
-                ))}
-              </div>
-            </Bloco>
           </div>
 
           {/* Coluna direita: resumo + finalizar */}
           <div className="bg-white rounded-2xl ring-1 ring-black/5 shadow-sm p-5 lg:sticky lg:top-24 space-y-4">
-            <div className="flex justify-between font-display font-bold text-lg">
+            <div>
+              <h3 className="font-display font-bold text-base mb-2">Itens do pedido {itens.length ? `(${itens.length})` : ""}</h3>
+              {itens.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-3 text-center"><ShoppingCart size={18} className="mx-auto mb-1 opacity-50" />Nenhum item ainda.<br />Adicione pelo catálogo ao lado.</p>
+              ) : (
+                <div className="space-y-2 max-h-[40vh] overflow-auto pr-1">
+                  {itens.map((i) => (
+                    <div key={i.key} className="flex items-center gap-2 rounded-lg ring-1 ring-black/5 p-2">
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs font-medium truncate">{i.nome}</div>
+                        <div className="text-[11px] text-muted-foreground">{brl(i.preco_unit)} · = {brl(i.preco_unit * i.quantidade)}</div>
+                      </div>
+                      <div className="inline-flex items-center rounded-lg ring-1 ring-black/10 overflow-hidden shrink-0">
+                        <button onClick={() => setQtd(i.key, i.quantidade - 1)} className="px-1.5 py-1 hover:bg-secondary"><Minus size={13} /></button>
+                        <span className="w-6 text-center text-xs">{i.quantidade}</span>
+                        <button onClick={() => setQtd(i.key, i.quantidade + 1)} className="px-1.5 py-1 hover:bg-secondary"><Plus size={13} /></button>
+                      </div>
+                      <button onClick={() => setQtd(i.key, 0)} className="p-1 rounded text-foreground/50 hover:text-red-600 shrink-0" aria-label="Remover"><Trash2 size={14} /></button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="flex justify-between font-display font-bold text-lg border-t pt-3">
               <span>Total</span>
               <span style={{ color: "var(--color-primary-dark)" }}>{brl(total)}</span>
             </div>
