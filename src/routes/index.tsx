@@ -8,7 +8,7 @@ import {
 
 import logo from "@/assets/bg-logo.png";
 import warehouse from "@/assets/bg-warehouse.png";
-import storefront from "@/assets/storefront.jpg";
+import storefront from "@/assets/bg-fachada.png";
 import schoolBg from "@/assets/school-supplies.jpg";
 import phoneBg from "@/assets/phone-contact.jpg";
 import catGrafico from "@/assets/cat-grafico.jpg";
@@ -180,22 +180,11 @@ function Hero() {
             <img
               src={storefront}
               alt="Fachada da loja BG Atacado em Passo Fundo"
-              width={1280} height={960}
-              className="w-full h-[460px] lg:h-[560px] object-cover transition-transform duration-[1.2s] ease-out group-hover:scale-105"
+              width={2000} height={740}
+              className="w-full aspect-[4/3] object-cover object-right transition-transform duration-[1.2s] ease-out group-hover:scale-105"
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-primary-dark/30 via-transparent to-transparent" />
+            <div className="absolute inset-0 bg-gradient-to-t from-primary-dark/20 via-transparent to-transparent" />
           </div>
-          <motion.div
-            initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.55 }}
-            className="absolute -bottom-6 -left-6 hidden sm:flex items-center gap-3 bg-white rounded-2xl px-5 py-4 shadow-xl">
-            <div className="flex h-12 w-12 items-center justify-center rounded-full animate-glow" style={{ background: "var(--color-gold)" }}>
-              <Trophy className="text-white" size={22} />
-            </div>
-            <div>
-              <div className="font-display tracking-tight text-2xl font-bold leading-none" style={{ color: "var(--color-primary-dark)" }}>65+</div>
-              <div className="text-xs text-muted-foreground">anos de tradição</div>
-            </div>
-          </motion.div>
         </motion.div>
       </div>
     </section>
