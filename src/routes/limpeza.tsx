@@ -8,9 +8,14 @@ import logo from "@/assets/bg-logo.png";
 import { supabase } from "@/lib/supabase";
 import type { Produto, Variante } from "@/lib/types";
 import { useCart } from "@/lib/cart";
+import { categoriaValores } from "@/lib/categorias";
 
 const WHATS_NUMBER = "5554991242948";
 const WHATS_LINK = `https://wa.me/${WHATS_NUMBER}`;
+
+// Inclui o valor legado do seed ("Limpeza") além do canônico, então a página
+// fica correta com ou sem a migration 20260716120000 aplicada.
+const CATEGORIAS_LIMPEZA = categoriaValores("limpeza");
 
 export const Route = createFileRoute("/limpeza")({
   head: () => ({
@@ -56,7 +61,7 @@ async function fetchProdutos(): Promise<Produto[]> {
   const { data, error } = await supabase
     .from("produtos")
     .select("*, produto_variantes(volume, preco, preco_cupom, preco_revenda, preco_empresa, ordem)")
-    .eq("categoria", "Limpeza")
+    .in("categoria", CATEGORIAS_LIMPEZA)
     .eq("ativo", true)
     .order("nome");
   if (error) throw error;
@@ -239,7 +244,7 @@ function ProductCard({ p }: { p: Produto }) {
 function LimpezaPage() {
   const [search, setSearch] = useState("");
   const { data, isLoading, isError } = useQuery({
-    queryKey: ["produtos", "Limpeza"],
+    queryKey: ["produtos", ...CATEGORIAS_LIMPEZA],
     queryFn: fetchProdutos,
   });
 
