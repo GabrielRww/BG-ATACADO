@@ -34,6 +34,24 @@ async function uploadParaStorage(file: File): Promise<string> {
   return supabase.storage.from("catalogo").getPublicUrl(path).data.publicUrl;
 }
 
+// Uma litragem/volume do produto (ex.: 5L, 500ml) com suas tabelas de preço.
+// `_id` é só chave de render — as variantes são regravadas a cada save.
+type LinhaVar = {
+  _id: string;
+  volume: string;
+  preco_cupom: string;
+  preco_revenda: string;
+  preco_empresa: string;
+};
+
+const novaVariante = (): LinhaVar => ({
+  _id: Math.random().toString(36).slice(2),
+  volume: "",
+  preco_cupom: "",
+  preco_revenda: "",
+  preco_empresa: "",
+});
+
 type FormState = {
   id: string | null;
   nome: string;
@@ -46,6 +64,7 @@ type FormState = {
   preco_empresa: string;
   imagem_url: string;
   ativo: boolean;
+  variantes: LinhaVar[];
 };
 
 const FORM_VAZIO: FormState = {
@@ -60,6 +79,7 @@ const FORM_VAZIO: FormState = {
   preco_empresa: "",
   imagem_url: "",
   ativo: true,
+  variantes: [],
 };
 
 // "12,50" / "12.50" -> 12.5 ; vazio -> null
@@ -77,7 +97,12 @@ async function fetchProdutosAdmin(
   busca: string,
   pagina: number,
 ): Promise<{ itens: Produto[]; total: number }> {
-  let q = supabase.from("produtos").select("*", { count: "exact" });
+  let q = supabase
+    .from("produtos")
+    .select(
+      "*, produto_variantes(volume, preco, preco_cupom, preco_revenda, preco_empresa, ordem)",
+      { count: "exact" },
+    );
   if (categoria) q = q.eq("categoria", categoria);
   const t = busca.trim().replace(/[%,()*]/g, " ");
   if (t) q = q.ilike("nome", `%${t}%`);
@@ -165,6 +190,17 @@ function AdminPanel({ email }: { email: string }) {
   const set = <K extends keyof FormState>(k: K, v: FormState[K]) =>
     setForm((f) => ({ ...f, [k]: v }));
 
+  // ── Litragens (produto_variantes) ──
+  const setVar = (id: string, patch: Partial<LinhaVar>) =>
+    setForm((f) => ({
+      ...f,
+      variantes: f.variantes.map((v) => (v._id === id ? { ...v, ...patch } : v)),
+    }));
+  const addVar = () =>
+    setForm((f) => ({ ...f, variantes: [...f.variantes, novaVariante()] }));
+  const delVar = (id: string) =>
+    setForm((f) => ({ ...f, variantes: f.variantes.filter((v) => v._id !== id) }));
+
   const invalidar = () => {
     qc.invalidateQueries({ queryKey: ["admin", "produtos"] });
     qc.invalidateQueries({ queryKey: ["produtos"] });
@@ -202,6 +238,15 @@ function AdminPanel({ email }: { email: string }) {
       preco_empresa: p.preco_empresa != null ? String(p.preco_empresa) : "",
       imagem_url: p.imagem_url ?? "",
       ativo: p.ativo,
+      variantes: [...(p.produto_variantes ?? [])]
+        .sort((a, b) => a.ordem - b.ordem)
+        .map((v) => ({
+          _id: Math.random().toString(36).slice(2),
+          volume: v.volume,
+          preco_cupom: v.preco_cupom != null ? String(v.preco_cupom) : v.preco ? String(v.preco) : "",
+          preco_revenda: v.preco_revenda != null ? String(v.preco_revenda) : "",
+          preco_empresa: v.preco_empresa != null ? String(v.preco_empresa) : "",
+        })),
     });
     setMsg(null);
     // Não rola pro topo: o formulário é fixo (sticky) e atualiza no lugar,
@@ -214,10 +259,50 @@ function AdminPanel({ email }: { email: string }) {
     if (fileRef.current) fileRef.current.value = "";
   }
 
+  // Regrava as litragens do produto: apaga as antigas e insere as do formulário.
+  // Nada referencia produto_variantes.id (o pedido guarda a variante como texto),
+  // então trocar as linhas é seguro e evita divergência entre form e banco.
+  async function salvarVariantes(produtoId: string) {
+    const linhas = form.variantes
+      .map((v) => ({ ...v, volume: v.volume.trim() }))
+      .filter((v) => v.volume);
+
+    const { error: eDel } = await supabase
+      .from("produto_variantes")
+      .delete()
+      .eq("produto_id", produtoId);
+    if (eDel) throw eDel;
+
+    if (!linhas.length) return;
+
+    const rows = linhas.map((l, i) => {
+      const pc = parsePreco(l.preco_cupom);
+      return {
+        produto_id: produtoId,
+        volume: l.volume,
+        preco_cupom: pc,
+        preco_revenda: parsePreco(l.preco_revenda),
+        preco_empresa: parsePreco(l.preco_empresa),
+        // legado: `preco` espelha o de cupom, igual ao produto.
+        preco: pc ?? 0,
+        ordem: i,
+      };
+    });
+    const { error } = await supabase.from("produto_variantes").insert(rows);
+    if (error) throw error;
+  }
+
   async function salvar(e: React.FormEvent) {
     e.preventDefault();
     if (!form.nome.trim()) {
       setMsg("Informe o nome do produto.");
+      return;
+    }
+    // O banco tem índice único (produto_id, volume): avisa antes de tentar gravar.
+    const vols = form.variantes.map((v) => v.volume.trim().toLowerCase()).filter(Boolean);
+    const dup = vols.find((v, i) => vols.indexOf(v) !== i);
+    if (dup) {
+      setMsg(`A litragem "${dup}" está repetida. Cada volume só pode aparecer uma vez.`);
       return;
     }
     setSalvando(true);
@@ -237,17 +322,30 @@ function AdminPanel({ email }: { email: string }) {
       imagem_url: form.imagem_url || null,
       ativo: form.ativo,
     };
-    const { error } = form.id
-      ? await supabase.from("produtos").update(payload).eq("id", form.id)
-      : await supabase.from("produtos").insert(payload);
-    setSalvando(false);
-    if (error) {
-      setMsg("Erro ao salvar: " + error.message);
-      return;
+    try {
+      let produtoId = form.id;
+      if (produtoId) {
+        const { error } = await supabase.from("produtos").update(payload).eq("id", produtoId);
+        if (error) throw error;
+      } else {
+        // Precisa do id de volta para gravar as litragens do produto novo.
+        const { data, error } = await supabase
+          .from("produtos")
+          .insert(payload)
+          .select("id")
+          .single();
+        if (error) throw error;
+        produtoId = data.id as string;
+      }
+      await salvarVariantes(produtoId);
+      setMsg(form.id ? "Produto atualizado!" : "Produto cadastrado!");
+      cancelar();
+      invalidar();
+    } catch (err) {
+      setMsg("Erro ao salvar: " + (err as Error).message);
+    } finally {
+      setSalvando(false);
     }
-    setMsg(form.id ? "Produto atualizado!" : "Produto cadastrado!");
-    cancelar();
-    invalidar();
   }
 
   async function excluir(p: Produto) {
@@ -439,6 +537,58 @@ function AdminPanel({ email }: { email: string }) {
                   </div>
                 </div>
                 <p className="mt-1.5 text-[11px] text-muted-foreground">Vazio = "a consultar". O site público mostra o preço de <b>cupom</b>.</p>
+              </div>
+
+              {/* Litragens / volumes do produto */}
+              <div>
+                <div className="flex items-center justify-between gap-2">
+                  <label className="text-sm font-medium text-foreground/80">Litragens / volumes (opcional)</label>
+                  <button type="button" onClick={addVar} className="inline-flex items-center gap-1 text-xs font-semibold text-primary-dark hover:underline">
+                    <Plus size={13} /> Adicionar litragem
+                  </button>
+                </div>
+
+                {form.variantes.length === 0 ? (
+                  <p className="mt-1.5 text-[11px] text-muted-foreground">
+                    Sem litragem: o site usa o preço do produto acima. Adicione (ex.: <b>2L</b>, <b>5L</b>, <b>50L</b>) para o cliente escolher o volume na página do produto.
+                  </p>
+                ) : (
+                  <>
+                    <div className="mt-2 space-y-2">
+                      <div className="grid grid-cols-[1fr_4.5rem_4.5rem_4.5rem_1.5rem] gap-1.5 px-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                        <span>Volume</span>
+                        <span className="text-right">Cupom</span>
+                        <span className="text-right">Revenda</span>
+                        <span className="text-right">Empresa</span>
+                        <span />
+                      </div>
+                      {form.variantes.map((v) => (
+                        <div key={v._id} className="grid grid-cols-[1fr_4.5rem_4.5rem_4.5rem_1.5rem] items-center gap-1.5">
+                          <input
+                            value={v.volume}
+                            onChange={(e) => setVar(v._id, { volume: e.target.value })}
+                            placeholder="Ex.: 5L"
+                            className="inp"
+                          />
+                          <input inputMode="decimal" value={v.preco_cupom} onChange={(e) => setVar(v._id, { preco_cupom: e.target.value })} placeholder="0,00" className="inp text-right px-1.5" />
+                          <input inputMode="decimal" value={v.preco_revenda} onChange={(e) => setVar(v._id, { preco_revenda: e.target.value })} placeholder="0,00" className="inp text-right px-1.5" />
+                          <input inputMode="decimal" value={v.preco_empresa} onChange={(e) => setVar(v._id, { preco_empresa: e.target.value })} placeholder="0,00" className="inp text-right px-1.5" />
+                          <button
+                            type="button"
+                            onClick={() => delVar(v._id)}
+                            aria-label={`Remover litragem ${v.volume || "sem nome"}`}
+                            className="text-muted-foreground hover:text-red-600 transition-colors"
+                          >
+                            <X size={15} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                    <p className="mt-1.5 text-[11px] text-muted-foreground">
+                      Cada volume aparece como um botão na página do produto. A ordem aqui é a ordem no site.
+                    </p>
+                  </>
+                )}
               </div>
 
               <Campo label="Descrição">
@@ -931,7 +1081,9 @@ function CadastrarVendedorForm({ onCriado }: { onCriado: () => void }) {
       setMsg("Erro: " + (error?.message ?? "falha ao criar"));
       return;
     }
-    const { error: e2 } = await temp.from("vendedores").insert({
+    // Insert feito com a sessão do ADMIN: o RLS só deixa criar linha com
+    // ativo=true quem é admin (a sessão temp é do vendedor recém-criado).
+    const { error: e2 } = await supabase.from("vendedores").insert({
       user_id: data.user.id,
       nome: nome.trim(),
       telefone: tel.trim() || null,
