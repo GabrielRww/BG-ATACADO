@@ -1,9 +1,9 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useEffect, useRef, useState } from "react";
 import { motion, useInView } from "framer-motion";
 import {
   Menu, X, Instagram, Facebook, MessageCircle, MapPin, ArrowRight, ArrowUp,
-  Trophy, Truck, Star, Package, Tag, Check, Phone, Mail, Clock, Search,
+  Trophy, Truck, Star, Package, Tag, Check, Phone, Mail, Clock,
 } from "lucide-react";
 
 import logo from "@/assets/bg-logo.png";
@@ -123,35 +123,6 @@ function Header() {
   );
 }
 
-function HeroSearch() {
-  const navigate = useNavigate();
-  const [q, setQ] = useState("");
-  function submit(e: FormEvent) {
-    e.preventDefault();
-    navigate({ to: "/busca", search: { q: q.trim() } });
-  }
-  return (
-    <motion.form variants={fadeUpItem} onSubmit={submit} role="search" className="mt-8 relative max-w-xl">
-      <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" />
-      <input
-        type="search"
-        value={q}
-        onChange={(e) => setQ(e.target.value)}
-        placeholder="Buscar produto pelo nome (ex.: caneta, post-it, papel A4...)"
-        aria-label="Buscar produto pelo nome"
-        className="w-full rounded-xl border border-black/10 bg-white py-3.5 pl-11 pr-28 text-sm text-foreground shadow-sm outline-none focus:ring-2 focus:ring-[var(--color-primary-light)]"
-      />
-      <button
-        type="submit"
-        className="absolute right-1.5 top-1/2 -translate-y-1/2 inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold text-white transition-transform hover:scale-[1.03]"
-        style={{ background: "var(--color-primary-dark)" }}
-      >
-        <Search size={15} /> Buscar
-      </button>
-    </motion.form>
-  );
-}
-
 function Hero() {
   return (
     <section id="inicio" className="relative min-h-screen pt-28 pb-16 overflow-hidden"
@@ -183,8 +154,7 @@ function Hero() {
           <motion.p variants={fadeUpItem} className="mt-6 text-lg text-muted-foreground max-w-xl">
             Atacadista em Passo Fundo/RS com materiais escolares, de escritório, embalagens, limpeza e muito mais — qualidade e preço justo.
           </motion.p>
-          <HeroSearch />
-          <motion.div variants={fadeUpItem} className="mt-6 flex flex-wrap gap-3">
+          <motion.div variants={fadeUpItem} className="mt-8 flex flex-wrap gap-3">
             <a href="#produtos" className="btn-primary btn-shine">Conheça nossos produtos <ArrowRight size={18} /></a>
             <a href={WHATS_LINK} target="_blank" rel="noreferrer" className="btn-ghost"><MessageCircle size={18} /> Fale no WhatsApp</a>
           </motion.div>
