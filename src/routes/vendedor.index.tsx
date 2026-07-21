@@ -196,7 +196,6 @@ function Portal({ nome, vendedorId }: { nome: string; vendedorId: string }) {
       return [...prev, { key, produto_id: p.id, nome: p.nome, variante: null, preco_unit: preco, imagem_url: p.imagem_url, sku: p.sku, unidade: p.unidade, quantidade: 1 }];
     });
     setQ("");
-    setResultados([]);
   }
   const setQtd = (key: string, qtd: number) =>
     setItens((prev) => (qtd <= 0 ? prev.filter((i) => i.key !== key) : prev.map((i) => (i.key === key ? { ...i, quantidade: qtd } : i))));
