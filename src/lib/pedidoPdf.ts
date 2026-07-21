@@ -69,7 +69,7 @@ export async function gerarPedidoPDF(
 
   // ── Cotação + cliente ──
   let y = Math.max(40, hy + 4);
-  doc.setFillColor(232);
+  doc.setFillColor(232, 232, 232);
   doc.rect(14, y - 5, 24, 7, "F");
   doc.setFont("helvetica", "bold");
   doc.setFontSize(9);
