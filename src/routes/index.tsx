@@ -331,7 +331,7 @@ const categories = [
   { name: "Linha Informática", img: catInformatica, slug: "informatica" },
   { name: "Linha Escritório", img: catEscritorio, slug: "escritorio" },
   { name: "Material Escolar", img: catEscolar, slug: "escolar" },
-  { name: "Embalagens Alimentícias", img: catEmbalagens, slug: "embalagens" },
+  { name: "Embalagens", img: catEmbalagens, slug: "embalagens" },
   // TODO: trocar a imagem por uma de alimentos (placeholder por enquanto)
   { name: "Alimentos", img: catEmbalagens, slug: "alimentos" },
 ];
