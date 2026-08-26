@@ -515,6 +515,7 @@ function Footer() {
           <ul className="space-y-3 text-sm">
             <li className="flex items-start gap-2"><Phone size={16} className="mt-1 text-primary-light shrink-0" /><span>(54) 99124-2948<br/><a href="mailto:vendas@bgatacado.com" className="text-white/60 hover:text-white">vendas@bgatacado.com</a></span></li>
             <li className="flex items-start gap-2"><Phone size={16} className="mt-1 text-primary-light shrink-0" /><span>(54) 3316-3100<br/><a href="mailto:financeiro@bgatacado.com" className="text-white/60 hover:text-white">financeiro@bgatacado.com</a></span></li>
+            <li className="flex items-start gap-2"><Phone size={16} className="mt-1 text-primary-light shrink-0" /><span>(54) 9703-7839<br/><span className="text-white/60">Vendedora Daniela</span></span></li>
             <li className="flex items-start gap-2"><Clock size={16} className="mt-1 text-primary-light shrink-0" /><span className="text-white/70">Seg–Sex 08:00–12:00 / 13:30–18:30<br/>Sáb 08:30–12:00 · Dom Fechado</span></li>
             <li className="flex items-start gap-2"><Mail size={16} className="mt-1 text-primary-light shrink-0" /><span className="text-white/70">Rua Teixeira Soares, 172<br/>Centro · Passo Fundo/RS</span></li>
           </ul>
