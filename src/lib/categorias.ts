@@ -3,6 +3,7 @@
 export type CategoriaInfo = {
   slug: string;
   nome: string;
+  rotulo?: string;
   emoji: string;
   // Rota dedicada (ex.: Limpeza tem a página Quimiprol com preços/variantes).
   rotaDedicada?: string;
@@ -14,7 +15,7 @@ export const CATEGORIAS_INFO: CategoriaInfo[] = [
   { slug: "informatica", nome: "Linha Informática", emoji: "💻" },
   { slug: "escritorio", nome: "Linha Escritório", emoji: "🗂️" },
   { slug: "escolar", nome: "Material Escolar", emoji: "📚" },
-  { slug: "embalagens", nome: "Embalagens Alimentícias", emoji: "🥡" },
+  { slug: "embalagens", nome: "Embalagens Alimentícias", rotulo: "Embalagens", emoji: "🥡" },
   { slug: "alimentos", nome: "Alimentos", emoji: "🍪" },
 ];
 
@@ -47,3 +48,7 @@ export const categoriaValores = (slug: string): string[] => [
   categoriaNome(slug),
   ...(CATEGORIA_LEGADO[slug] ?? []),
 ];
+
+// Texto exibido na tela. Use SEMPRE isto para mostrar a categoria ao usuario e
+// `nome` para filtrar/gravar no banco -- os dois divergem de proposito.
+export const rotuloCategoria = (c: CategoriaInfo) => c.rotulo ?? c.nome;

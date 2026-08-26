@@ -7,7 +7,7 @@ import { ArrowLeft, MessageCircle, Search, Package, Loader2, ShoppingCart } from
 import logo from "@/assets/bg-logo.png";
 import { supabase } from "@/lib/supabase";
 import type { Produto } from "@/lib/types";
-import { categoriaPorSlug, type CategoriaInfo } from "@/lib/categorias";
+import { categoriaPorSlug, rotuloCategoria, type CategoriaInfo } from "@/lib/categorias";
 import { useCart } from "@/lib/cart";
 
 const WHATS_NUMBER = "5554991242948";
@@ -22,10 +22,10 @@ export const Route = createFileRoute("/categoria/$slug")({
     const cat = categoriaPorSlug(params.slug);
     return {
       meta: [
-        { title: `${cat?.nome ?? "Categoria"} — BG Atacado` },
+        { title: `${cat ? rotuloCategoria(cat) : "Categoria"} — BG Atacado` },
         {
           name: "description",
-          content: `Confira os itens de ${cat?.nome ?? "nossa loja"} na BG Atacado. Peça pelo WhatsApp.`,
+          content: `Confira os itens de ${cat ? rotuloCategoria(cat) : "nossa loja"} na BG Atacado. Peça pelo WhatsApp.`,
         },
       ],
     };
@@ -87,7 +87,7 @@ function CatalogHeader({ cat }: { cat: CategoriaInfo }) {
           <img src={logo} alt="BG Atacado" width={44} height={44} className="h-11 w-11 rounded-full object-cover ring-1 ring-black/5" />
           <div className="leading-tight">
             <div className="font-display tracking-tight text-xl font-bold text-foreground">BG Atacado</div>
-            <div className="text-[10px] tracking-[0.22em] uppercase text-muted-foreground">{cat.nome}</div>
+            <div className="text-[10px] tracking-[0.22em] uppercase text-muted-foreground">{rotuloCategoria(cat)}</div>
           </div>
         </Link>
         <Link to="/" className="inline-flex items-center gap-1.5 text-sm font-medium text-foreground/80 hover:text-primary-dark transition-colors">
@@ -180,7 +180,7 @@ function CategoriaPage() {
         <div className="absolute inset-0 dot-grid opacity-[0.06] text-white" aria-hidden="true" />
         <div className="container-wide relative text-white text-center max-w-2xl mx-auto">
           <h1 className="font-display tracking-tight font-bold text-3xl sm:text-4xl lg:text-5xl">
-            {cat.nome}
+            {rotuloCategoria(cat)}
           </h1>
           <p className="mt-4 text-white/85 text-lg">
             Escolha o item e fale com a gente direto no WhatsApp.
