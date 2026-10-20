@@ -31,6 +31,11 @@ export type DadosPedido = {
 export const brl = (v: number) =>
   v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
+export const MOSTRAR_PRECOS: boolean = false;
+
+export const precoPublico = (x: { preco: number; preco_cupom?: number | null }) =>
+  MOSTRAR_PRECOS ? (x.preco_cupom ?? x.preco) : 0;
+
 const LABEL_PAGAMENTO: Record<FormaPagamento, string> = {
   cartao_entrega: "Cartão na entrega",
   cupom: "Cupom",

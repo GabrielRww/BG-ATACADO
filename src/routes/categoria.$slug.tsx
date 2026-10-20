@@ -9,6 +9,7 @@ import { supabase } from "@/lib/supabase";
 import type { Produto } from "@/lib/types";
 import { categoriaPorSlug, rotuloCategoria, type CategoriaInfo } from "@/lib/categorias";
 import { useCart } from "@/lib/cart";
+import { precoPublico } from "@/lib/pedidos";
 
 const WHATS_NUMBER = "5554991242948";
 const WHATS_LINK = `https://wa.me/${WHATS_NUMBER}`;
@@ -35,9 +36,6 @@ export const Route = createFileRoute("/categoria/$slug")({
 
 const brl = (v: number) =>
   v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-
-// Preço público = tabela cupom (consumidor); fallback p/ o legado `preco`.
-const precoPublico = (p: Produto) => p.preco_cupom ?? p.preco;
 
 function whatsappLink(p: Produto) {
   const pp = precoPublico(p);

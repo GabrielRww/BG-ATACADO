@@ -1,11 +1,12 @@
 import { Link } from "@tanstack/react-router";
 import { ShoppingCart } from "lucide-react";
 import { useCart } from "@/lib/cart";
+import { MOSTRAR_PRECOS } from "@/lib/pedidos";
 
 // Botão flutuante do carrinho — visível em qualquer página quando há itens.
 export function CartFab() {
   const { totalItems } = useCart();
-  if (totalItems === 0) return null;
+  if (!MOSTRAR_PRECOS || totalItems === 0) return null;
   return (
     <Link
       to="/carrinho"

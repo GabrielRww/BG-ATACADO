@@ -9,6 +9,7 @@ import { supabase } from "@/lib/supabase";
 import type { Produto, Variante } from "@/lib/types";
 import { useCart } from "@/lib/cart";
 import { categoriaValores } from "@/lib/categorias";
+import { precoPublico } from "@/lib/pedidos";
 
 const WHATS_NUMBER = "5554991242948";
 const WHATS_LINK = `https://wa.me/${WHATS_NUMBER}`;
@@ -33,10 +34,6 @@ export const Route = createFileRoute("/limpeza")({
 
 const brl = (v: number) =>
   v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-
-// Preço público = tabela cupom (consumidor); fallback p/ o legado `preco`.
-const precoPublico = (x: { preco: number; preco_cupom?: number | null }) =>
-  x.preco_cupom ?? x.preco;
 
 // Remove o sufixo de volumes do nome (ex.: "Detergente Neutro 5L | 2L | 50L"
 // -> "Detergente Neutro"), já que o volume é mostrado no seletor.

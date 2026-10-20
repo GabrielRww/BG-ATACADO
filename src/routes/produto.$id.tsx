@@ -16,14 +16,11 @@ import logo from "@/assets/bg-logo.png";
 import { supabase } from "@/lib/supabase";
 import type { Produto, Variante } from "@/lib/types";
 import { useCart } from "@/lib/cart";
-import { brl, WHATS_NUMBER } from "@/lib/pedidos";
+import { brl, precoPublico, WHATS_NUMBER } from "@/lib/pedidos";
 
 export const Route = createFileRoute("/produto/$id")({
   component: ProdutoPage,
 });
-
-const precoPublico = (x: { preco: number; preco_cupom?: number | null }) =>
-  x.preco_cupom ?? x.preco;
 
 // Tira o sufixo de volumes do nome ("Detergente 5L | 2L" -> "Detergente").
 function nomeLimpo(nome: string) {

@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { useState } from "react";
 import {
   ArrowLeft,
@@ -16,6 +16,7 @@ import logo from "@/assets/bg-logo.png";
 import { useCart } from "@/lib/cart";
 import {
   brl,
+  MOSTRAR_PRECOS,
   salvarPedido,
   whatsappHref,
   type DadosPedido,
@@ -24,6 +25,9 @@ import {
 } from "@/lib/pedidos";
 
 export const Route = createFileRoute("/carrinho")({
+  beforeLoad: () => {
+    if (!MOSTRAR_PRECOS) throw redirect({ to: "/" });
+  },
   component: CarrinhoPage,
 });
 
